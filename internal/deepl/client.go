@@ -50,22 +50,15 @@ func WithTargetLanguage(language string) Option {
 	return func(c *Client) { c.targetLanguage = language }
 }
 
-func WithHTTPClient(httpClient *http.Client) Option {
-	return func(c *Client) { c.httpClient = httpClient }
-}
-
-// WithSecureOnly refuses a redirect that would carry the key off https. Go keeps
-// the Authorization header when a host redirects to itself, downgrade included.
-func WithSecureOnly() Option {
-	return func(c *Client) {
-		c.httpClient.CheckRedirect = func(request *http.Request, _ []*http.Request) error {
-			if request.URL.Scheme != "https" {
-				return fmt.Errorf("refusing a redirect to %s: the API key travels with it",
-					request.URL.Scheme)
-			}
-			return nil
-		}
+// refuseInsecureRedirect keeps the key from following a redirect off https. Go
+// carries the credential header when a host redirects to itself, downgrade
+// included, so this is installed for every client rather than asked for.
+func refuseInsecureRedirect(request *http.Request, _ []*http.Request) error {
+	if request.URL.Scheme != "https" {
+		return fmt.Errorf("refusing a redirect to %s: the API key travels with it",
+			request.URL.Scheme)
 	}
+	return nil
 }
 
 func New(apiKey string, options ...Option) *Client {
@@ -78,6 +71,9 @@ func New(apiKey string, options ...Option) *Client {
 	for _, option := range options {
 		option(client)
 	}
+	// After the options, so no way of building a client can leave the key free to
+	// follow a redirect into the clear.
+	client.httpClient.CheckRedirect = refuseInsecureRedirect
 	return client
 }
 

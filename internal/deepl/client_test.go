@@ -182,6 +182,8 @@ func TestAnEnormousResponseIsNotReadWithoutLimit(t *testing.T) {
 	}
 }
 
+// However the client was built: refusing to carry the key off https is not
+// something a caller has to remember to ask for.
 func TestARedirectToPlainHttpIsRefusedSoTheKeyStays(t *testing.T) {
 	t.Parallel()
 
@@ -196,7 +198,7 @@ func TestARedirectToPlainHttpIsRefusedSoTheKeyStays(t *testing.T) {
 	}))
 	t.Cleanup(redirecting.Close)
 
-	_, err := deepl.New("key-123", deepl.WithEndpoint(redirecting.URL), deepl.WithSecureOnly()).
+	_, err := deepl.New("key-123", deepl.WithEndpoint(redirecting.URL)).
 		Translate(context.Background(), "Bitte behebe es")
 
 	if err == nil {

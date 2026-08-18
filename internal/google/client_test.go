@@ -169,3 +169,30 @@ func TestADraftTooLargeForTheServiceIsRefusedBeforeItIsSent(t *testing.T) {
 		t.Error("the oversized draft was sent anyway")
 	}
 }
+
+// However the client was built: refusing to carry the key off https is not
+// something a caller has to remember to ask for.
+func TestARedirectToPlainHttpIsRefusedSoTheKeyStays(t *testing.T) {
+	t.Parallel()
+
+	var plainReached bool
+	plain := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		plainReached = r.Header.Get("X-Goog-Api-Key") != ""
+	}))
+	t.Cleanup(plain.Close)
+
+	redirecting := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, plain.URL, http.StatusTemporaryRedirect)
+	}))
+	t.Cleanup(redirecting.Close)
+
+	_, err := google.New("key-123", google.WithEndpoint(redirecting.URL)).
+		Translate(context.Background(), "Bitte behebe es")
+
+	if err == nil {
+		t.Error("Translate followed a redirect away from https, want it refused")
+	}
+	if plainReached {
+		t.Error("the key was sent to the redirect target")
+	}
+}
