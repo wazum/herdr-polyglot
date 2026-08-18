@@ -88,6 +88,13 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		return m.delegate(msg)
 	}
 
+	// Bracketed paste is text, never commands — the same call nvim makes.
+	if key.Paste {
+		m.remember()
+		m.area.InsertString(string(key.Runes))
+		return m, nil
+	}
+
 	if m.mode == Normal {
 		return m.normal(key), nil
 	}

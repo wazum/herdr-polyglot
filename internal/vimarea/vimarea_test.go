@@ -315,3 +315,47 @@ func TestWithoutVimBindingsEveryKeyGoesIntoTheDraft(t *testing.T) {
 		t.Errorf("mode is %v, want to stay in insert", area.Mode())
 	}
 }
+
+func paste(area vimarea.Model, text string) vimarea.Model {
+	area, _ = area.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(text), Paste: true})
+	return area
+}
+
+func TestPastedTextLandsInTheDraftAndTypingContinuesAfterIt(t *testing.T) {
+	t.Parallel()
+	area := keys(vimarea.New(vimarea.WithVim(true)), "Kontext: ")
+
+	area = paste(area, "erste Zeile\nzweite Zeile mit Übersetzung")
+	area = keys(area, " – weiter")
+
+	const want = "Kontext: erste Zeile\nzweite Zeile mit Übersetzung – weiter"
+	if area.Value() != want {
+		t.Errorf("value is %q, want %q", area.Value(), want)
+	}
+}
+
+func TestPastingInNormalModeInsertsTextInsteadOfRunningItAsCommands(t *testing.T) {
+	t.Parallel()
+	area := normalWith("Kontext")
+
+	// Every character here is also a normal-mode command: d deletes, x cuts,
+	// p pastes. None of them may fire.
+	area = paste(area, " dxp")
+
+	if area.Value() != " dxpKontext" {
+		t.Errorf("value is %q, want the pasted text inserted verbatim", area.Value())
+	}
+	if area.Mode() != vimarea.Normal {
+		t.Errorf("mode is %v, want to stay in normal as nvim does", area.Mode())
+	}
+}
+
+func TestPastingWorksWithoutVimBindings(t *testing.T) {
+	t.Parallel()
+
+	area := paste(vimarea.New(vimarea.WithVim(false)), "eins\nzwei")
+
+	if area.Value() != "eins\nzwei" {
+		t.Errorf("value is %q, want the pasted text", area.Value())
+	}
+}
