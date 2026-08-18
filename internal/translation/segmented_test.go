@@ -101,7 +101,7 @@ func TestSegmentedRepeatsNothingWhenTheDraftIsUnchanged(t *testing.T) {
 	}
 }
 
-func TestSegmentedGivesTheRestOfTheDraftAsUnbilledContext(t *testing.T) {
+func TestSegmentedGivesEachSentenceWhatCameBeforeItAsUnbilledContext(t *testing.T) {
 	t.Parallel()
 	spy := &spyTranslator{}
 
@@ -117,12 +117,110 @@ func TestSegmentedGivesTheRestOfTheDraftAsUnbilledContext(t *testing.T) {
 	if len(contexts) != 2 {
 		t.Fatalf("translator received %d contexts, want one per sentence", len(contexts))
 	}
-	if !strings.Contains(contexts[0], "Zweiter Satz!") {
-		t.Errorf("first sentence had context %q, want the rest of the draft", contexts[0])
+	if contexts[0] != "" {
+		t.Errorf("the first sentence had context %q, want none", contexts[0])
 	}
-	if !strings.Contains(contexts[1], "Erster Satz.") {
-		t.Errorf("second sentence had context %q, want the rest of the draft", contexts[1])
+	if contexts[1] != "Erster Satz." {
+		t.Errorf("the second sentence had context %q, want the sentence before it", contexts[1])
 	}
+}
+
+// What came before a sentence is part of its meaning, so changing it has to
+// retranslate what follows.
+func TestSegmentedRetranslatesLaterSentencesWhenAnEarlierOneChanges(t *testing.T) {
+	t.Parallel()
+	spy := &spyTranslator{}
+	segmented := translation.Segmented(spy)
+
+	if _, err := segmented.Translate(context.Background(), "Sie ist hier. Die Bank ist zu."); err != nil {
+		t.Fatalf("first Translate returned unexpected error: %v", err)
+	}
+	before := len(spy.sent())
+
+	if _, err := segmented.Translate(context.Background(), "Sie sass am Fluss. Die Bank ist zu."); err != nil {
+		t.Fatalf("second Translate returned unexpected error: %v", err)
+	}
+
+	added := spy.sent()[before:]
+	if len(added) != 2 {
+		t.Errorf("second run sent %v, want both the changed sentence and the one after it", added)
+	}
+}
+
+// Typing at the end must not throw away what is already translated.
+func TestSegmentedKeepsEarlierSentencesWhileTheLastOneIsWritten(t *testing.T) {
+	t.Parallel()
+	spy := &spyTranslator{}
+	segmented := translation.Segmented(spy)
+
+	if _, err := segmented.Translate(context.Background(), "Erster Satz. Zwei"); err != nil {
+		t.Fatalf("first Translate returned unexpected error: %v", err)
+	}
+	before := len(spy.sent())
+
+	if _, err := segmented.Translate(context.Background(), "Erster Satz. Zweiter Satz!"); err != nil {
+		t.Fatalf("second Translate returned unexpected error: %v", err)
+	}
+
+	added := spy.sent()[before:]
+	if len(added) != 1 || strings.TrimSpace(added[0]) != "Zweiter Satz!" {
+		t.Errorf("second run sent %v, want only the sentence being written", added)
+	}
+}
+
+// Two previews can overlap while a draft is written; the same sentence must not
+// be paid for twice.
+func TestSegmentedSendsASentenceOnceEvenWhenAskedTwiceAtOnce(t *testing.T) {
+	t.Parallel()
+	spy := &blockingTranslator{started: make(chan struct{}, 4), release: make(chan struct{})}
+	segmented := translation.Segmented(spy)
+
+	const draft = "Der Test schlaegt fehl. Bitte behebe ihn."
+	results := make(chan string, 2)
+	for range 2 {
+		go func() {
+			translated, err := segmented.Translate(context.Background(), draft)
+			if err != nil {
+				t.Errorf("Translate returned unexpected error: %v", err)
+			}
+			results <- translated
+		}()
+	}
+
+	<-spy.started
+	close(spy.release)
+	first, second := <-results, <-results
+
+	if first != second {
+		t.Errorf("the two callers got %q and %q, want the same translation", first, second)
+	}
+	if calls := spy.count(); calls > 2 {
+		t.Errorf("the translator was called %d times for 2 sentences, want each sent once", calls)
+	}
+}
+
+type blockingTranslator struct {
+	mu      sync.Mutex
+	calls   int
+	started chan struct{}
+	release chan struct{}
+	once    sync.Once
+}
+
+func (b *blockingTranslator) Translate(_ context.Context, text string) (string, error) {
+	b.mu.Lock()
+	b.calls++
+	b.mu.Unlock()
+
+	b.once.Do(func() { b.started <- struct{}{} })
+	<-b.release
+	return "<" + strings.TrimSpace(text) + ">", nil
+}
+
+func (b *blockingTranslator) count() int {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.calls
 }
 
 func TestSegmentedKeepsParagraphsApart(t *testing.T) {

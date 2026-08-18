@@ -3,10 +3,12 @@ package translation
 import "strings"
 
 // piece is one sentence plus the whitespace that followed it, so a draft can be
-// put back together exactly as it was written.
+// put back together exactly as it was written. A piece is finished once its
+// sentence is closed; the unfinished one is whatever is still being typed.
 type piece struct {
 	text      string
 	separator string
+	finished  bool
 }
 
 func splitSentences(draft string) []piece {
@@ -34,6 +36,7 @@ func splitSentences(draft string) []piece {
 		pieces = append(pieces, piece{
 			text:      string(runes[start:end]),
 			separator: string(runes[end:separatorEnd]),
+			finished:  true,
 		})
 		start, index = separatorEnd, separatorEnd-1
 	}
@@ -57,20 +60,6 @@ func endsSentence(runes []rune, index int) bool {
 
 func isSeparator(r rune) bool {
 	return r == ' ' || r == '\t' || r == '\n' || r == '\r'
-}
-
-// surroundings is everything except the piece being translated: free context
-// that lets a service translate one sentence as part of the whole draft.
-func surroundings(pieces []piece, index int) string {
-	var rest strings.Builder
-	for other, piece := range pieces {
-		if other == index {
-			continue
-		}
-		rest.WriteString(piece.text)
-		rest.WriteString(piece.separator)
-	}
-	return strings.TrimSpace(rest.String())
 }
 
 func join(pieces []piece, translated []string) string {
