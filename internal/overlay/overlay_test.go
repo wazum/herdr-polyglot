@@ -477,3 +477,104 @@ func (s *slowSecondTranslator) Translate(_ context.Context, _ string) (string, e
 	}
 	return s.second, nil
 }
+
+// A draft that moves on makes the request it started pointless; letting it run
+// spends characters and request budget on a translation nobody will read.
+func TestANewDraftCancelsTheTranslationAlreadyRunning(t *testing.T) {
+	t.Parallel()
+	translator := &cancellingTranslator{
+		entered:  make(chan struct{}),
+		observed: make(chan error, 4),
+		release:  make(chan struct{}),
+	}
+
+	overlayUnderTest := newOverlayWith(t, translator, &recordingTarget{}, overlay.Options{
+		Service:  "deepl",
+		Language: "EN-US",
+		Live:     true,
+		Debounce: 20 * time.Millisecond,
+	})
+
+	overlayUnderTest.Type("Erste Fassung")
+	select {
+	case <-translator.entered:
+	case <-time.After(2 * time.Second):
+		t.Fatal("the first translation never started")
+	}
+
+	overlayUnderTest.Type(" zweite Fassung")
+
+	select {
+	case err := <-translator.observed:
+		if !errors.Is(err, context.Canceled) {
+			t.Errorf("the abandoned request saw %v, want it cancelled", err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Error("the abandoned request was never cancelled")
+	}
+
+	close(translator.release)
+	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyCtrlC})
+	overlayUnderTest.WaitFinished(t, teatest.WithFinalTimeout(3*time.Second))
+}
+
+func TestACancelledTranslationIsNotShownAsAFailure(t *testing.T) {
+	t.Parallel()
+	translator := &cancellingTranslator{
+		entered:  make(chan struct{}),
+		observed: make(chan error, 4),
+		release:  make(chan struct{}),
+	}
+
+	overlayUnderTest := newOverlayWith(t, translator, &recordingTarget{}, overlay.Options{
+		Service:  "deepl",
+		Language: "EN-US",
+		Live:     true,
+		Debounce: 20 * time.Millisecond,
+	})
+
+	overlayUnderTest.Type("Erste Fassung")
+	select {
+	case <-translator.entered:
+	case <-time.After(2 * time.Second):
+		t.Fatal("the first translation never started")
+	}
+
+	overlayUnderTest.Type(" mehr")
+	select {
+	case <-translator.observed:
+	case <-time.After(2 * time.Second):
+	}
+	close(translator.release)
+	time.Sleep(200 * time.Millisecond)
+
+	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyCtrlC})
+	overlayUnderTest.WaitFinished(t, teatest.WithFinalTimeout(3*time.Second))
+
+	shown, err := io.ReadAll(overlayUnderTest.Output())
+	if err != nil {
+		t.Fatalf("reading output: %v", err)
+	}
+	if bytes.Contains(shown, []byte("context canceled")) {
+		t.Error("a cancelled request was reported to the author, want it passed over")
+	}
+}
+
+type cancellingTranslator struct {
+	once     sync.Once
+	entered  chan struct{}
+	observed chan error
+	release  chan struct{}
+}
+
+func (c *cancellingTranslator) Translate(ctx context.Context, _ string) (string, error) {
+	c.once.Do(func() { close(c.entered) })
+
+	select {
+	case <-ctx.Done():
+		c.observed <- ctx.Err()
+		return "", ctx.Err()
+	case <-c.release:
+		return english, nil
+	}
+}

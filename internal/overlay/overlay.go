@@ -88,6 +88,9 @@ type Model struct {
 	// revision counts draft changes; a reply for an older one is discarded.
 	revision  int
 	requested int
+	// cancelPreview stops the translation started for an older draft. It is a
+	// closure, so every copy of the model cancels the same request.
+	cancelPreview context.CancelFunc
 }
 
 func New(ctx context.Context, prompter Prompter, options Options) Model {
@@ -167,7 +170,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.startPreview()
 
 	case previewReadyMsg:
-		if msg.request != m.requested {
+		if msg.request != m.requested || errors.Is(msg.err, context.Canceled) {
 			return m, nil
 		}
 		m.previewOf, m.preview, m.previewError = msg.of, msg.text, msg.err
@@ -220,6 +223,8 @@ func (m Model) handleKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	if after := m.draft.Value(); m.options.Live && after != before {
 		m.revision++
+		m.stopPreview()
+		m.previewError = nil
 		return m, tea.Batch(cmd, m.schedulePreview())
 	}
 	return m, cmd
@@ -237,8 +242,12 @@ func (m Model) startPreview() (tea.Model, tea.Cmd) {
 	m.requested++
 	request := m.requested
 
+	m.stopPreview()
+	previewCtx, cancel := context.WithCancel(m.ctx)
+	m.cancelPreview = cancel
+
 	return m, func() tea.Msg {
-		translated, err := m.prompter.Translate(m.ctx, draft)
+		translated, err := m.prompter.Translate(previewCtx, draft)
 		if errors.Is(err, promptflow.ErrBlankDraft) {
 			return previewReadyMsg{request: request, of: draft}
 		}
@@ -246,10 +255,18 @@ func (m Model) startPreview() (tea.Model, tea.Cmd) {
 	}
 }
 
+func (m *Model) stopPreview() {
+	if m.cancelPreview != nil {
+		m.cancelPreview()
+		m.cancelPreview = nil
+	}
+}
+
 func (m Model) startSubmit() (tea.Model, tea.Cmd) {
 	draft := m.draft.Value()
 	m.stage = translating
 	m.failure = nil
+	m.stopPreview()
 
 	// A preview the author has just read needs no second translation.
 	if m.previewIsCurrent() {
