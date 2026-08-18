@@ -97,6 +97,11 @@ files, buffers or windows here, so nothing that acts on them exists.
 
 Without vim, the box is an ordinary text area and `esc` closes it.
 
+Pasting works in either mode and in the middle of a draft: the text is inserted
+where the cursor is and you keep writing after it. In normal mode a paste is
+still text, never a sequence of commands, the way bracketed paste behaves in
+nvim.
+
 ## How it works
 
 The keybinding runs an action that knows which pane you pressed it in, and opens
