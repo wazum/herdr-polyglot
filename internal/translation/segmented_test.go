@@ -2,6 +2,7 @@ package translation_test
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"sync"
 	"testing"
@@ -255,4 +256,78 @@ type stubProviderTranslator struct{}
 
 func (stubProviderTranslator) Translate(_ context.Context, text string) (string, error) {
 	return "[" + strings.TrimSpace(text) + "]", nil
+}
+
+func draftOf(sentences int) string {
+	parts := make([]string, sentences)
+	for index := range parts {
+		parts[index] = fmt.Sprintf("Satz Nummer %d ist hier.", index)
+	}
+	return strings.Join(parts, " ")
+}
+
+// Editing early in a long draft must not resend everything after it.
+func TestSegmentedRetranslatesOnlyTheNeighbourhoodOfAnEdit(t *testing.T) {
+	t.Parallel()
+	spy := &spyTranslator{}
+	segmented := translation.Segmented(spy)
+	draft := draftOf(50)
+
+	if _, err := segmented.Translate(context.Background(), draft); err != nil {
+		t.Fatalf("first Translate returned unexpected error: %v", err)
+	}
+	before := len(spy.sent())
+
+	edited := strings.Replace(draft, "Satz Nummer 0", "Satz Nummer null", 1)
+	if _, err := segmented.Translate(context.Background(), edited); err != nil {
+		t.Fatalf("second Translate returned unexpected error: %v", err)
+	}
+
+	if added := len(spy.sent()) - before; added > 3 {
+		t.Errorf("editing one sentence resent %d of them, want only its neighbourhood", added)
+	}
+}
+
+// Context is unbilled but not free: sending the whole draft with every sentence
+// grows with the square of its length.
+func TestSegmentedKeepsTheContextItSendsSmall(t *testing.T) {
+	t.Parallel()
+	spy := &spyTranslator{}
+	draft := draftOf(40)
+
+	if _, err := translation.Segmented(spy).Translate(context.Background(), draft); err != nil {
+		t.Fatalf("Translate returned unexpected error: %v", err)
+	}
+
+	spy.mu.Lock()
+	contexts := append([]string(nil), spy.contexts...)
+	spy.mu.Unlock()
+
+	total := 0
+	for _, surrounding := range contexts {
+		total += len(surrounding)
+	}
+	if total > 3*len(draft) {
+		t.Errorf("context sent totalled %d characters for a draft of %d, want it bounded",
+			total, len(draft))
+	}
+}
+
+func TestSegmentedForgetsOldSentencesInsteadOfGrowingForEver(t *testing.T) {
+	t.Parallel()
+	spy := &spyTranslator{}
+	segmented := translation.Segmented(spy)
+
+	// Every draft is different, so nothing may be reused; the point is that the
+	// store stays bounded rather than keeping one entry per sentence ever seen.
+	for round := range 400 {
+		draft := fmt.Sprintf("Einmalig %d. Und noch etwas %d.", round, round)
+		if _, err := segmented.Translate(context.Background(), draft); err != nil {
+			t.Fatalf("Translate returned unexpected error: %v", err)
+		}
+	}
+
+	if remembered := translation.Remembered(segmented); remembered > 512 {
+		t.Errorf("the store holds %d sentences, want it capped", remembered)
+	}
 }

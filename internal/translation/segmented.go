@@ -6,6 +6,17 @@ import (
 	"sync"
 )
 
+const (
+	// contextSentences is how much of what came before a sentence is sent along
+	// and remembered with it. One sentence is enough to settle most ambiguity,
+	// and keeping the window small means editing early in a draft does not
+	// invalidate everything after it.
+	contextSentences = 1
+	// maxRemembered bounds the store: a long session would otherwise keep every
+	// sentence it ever translated.
+	maxRemembered = 256
+)
+
 // ContextualTranslator can be told what comes before a piece of text. DeepL uses
 // it to translate the piece in context without billing for the surroundings.
 type ContextualTranslator interface {
@@ -22,9 +33,11 @@ type ContextualTranslator interface {
 type segmented struct {
 	translator Translator
 
-	mu       sync.Mutex
-	known    map[string]string
-	inflight map[string]*call
+	mu    sync.Mutex
+	known map[string]string
+	// remembered is insertion order, so the oldest entry goes first.
+	remembered []string
+	inflight   map[string]*call
 	// tail is the sentence still being written. It is kept in one slot instead
 	// of the map, so a long session does not collect an entry per keystroke.
 	tailKey, tailText string
@@ -48,20 +61,17 @@ func (s *segmented) Translate(ctx context.Context, draft string) (string, error)
 	pieces := splitSentences(draft)
 
 	translated := make([]string, len(pieces))
-	preceding := ""
 	for index, piece := range pieces {
 		if strings.TrimSpace(piece.text) == "" {
 			translated[index] = piece.text
-			preceding = join(pieces[:index+1], textsOf(pieces[:index+1]))
 			continue
 		}
 
-		result, err := s.translatePiece(ctx, piece, preceding, index == len(pieces)-1)
+		result, err := s.translatePiece(ctx, piece, contextBefore(pieces, index), index == len(pieces)-1)
 		if err != nil {
 			return "", err
 		}
 		translated[index] = result
-		preceding = strings.TrimSpace(preceding + " " + piece.text)
 	}
 
 	return join(pieces, translated), nil
@@ -134,13 +144,26 @@ func (s *segmented) remember(key, translated string, asTail bool) {
 		s.tailKey, s.tailText = key, translated
 		return
 	}
+
+	if _, known := s.known[key]; !known {
+		s.remembered = append(s.remembered, key)
+		if len(s.remembered) > maxRemembered {
+			delete(s.known, s.remembered[0])
+			s.remembered = s.remembered[1:]
+		}
+	}
 	s.known[key] = translated
 }
 
-func textsOf(pieces []piece) []string {
-	texts := make([]string, len(pieces))
-	for index, piece := range pieces {
-		texts[index] = piece.text
+// contextBefore is the handful of sentences in front of one, which is what the
+// service is told about its meaning.
+func contextBefore(pieces []piece, index int) string {
+	from := max(index-contextSentences, 0)
+
+	var before strings.Builder
+	for _, piece := range pieces[from:index] {
+		before.WriteString(piece.text)
+		before.WriteString(piece.separator)
 	}
-	return texts
+	return strings.TrimSpace(before.String())
 }
