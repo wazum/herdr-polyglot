@@ -7,6 +7,8 @@ the versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-08-18
+
 ### Added
 
 - *Google Cloud Translation* as a second service, chosen with
@@ -45,5 +47,6 @@ meets other people's terminals — that is what the 0.x is for.
 - Prebuilt binaries for macOS and Linux on arm64 and amd64, published with
   checksums and build provenance. Installing needs no Go toolchain.
 
-[Unreleased]: https://github.com/wazum/herdr-polyglot/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/wazum/herdr-polyglot/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/wazum/herdr-polyglot/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/wazum/herdr-polyglot/releases/tag/v0.1.0
