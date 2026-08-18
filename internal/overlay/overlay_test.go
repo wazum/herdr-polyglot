@@ -758,3 +758,80 @@ func TestADraftCanBeThrownAwayWithOneKey(t *testing.T) {
 	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyCtrlC})
 	overlayUnderTest.WaitFinished(t, teatest.WithFinalTimeout(2*time.Second))
 }
+
+func confirmingOverlay(t *testing.T, translator promptflow.Translator, target promptflow.Target) *teatest.TestModel {
+	t.Helper()
+	return newOverlayWith(t, translator, target, overlay.Options{
+		Service:  "deepl",
+		Language: "EN-US",
+		Confirm:  true,
+	})
+}
+
+func TestWithConfirmationTheEnglishIsShownBeforeItIsSent(t *testing.T) {
+	t.Parallel()
+	translator := &countingTranslator{english: english}
+	target := &recordingTarget{}
+
+	overlayUnderTest := confirmingOverlay(t, translator, target)
+	overlayUnderTest.Type(draft)
+	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyCtrlD})
+
+	teatest.WaitFor(t, overlayUnderTest.Output(), func(out []byte) bool {
+		return bytes.Contains(out, []byte(english))
+	}, teatest.WithDuration(3*time.Second))
+
+	if len(target.inserted) != 0 {
+		t.Fatalf("target received %v, want nothing until it is confirmed", target.inserted)
+	}
+
+	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyCtrlD})
+	overlayUnderTest.WaitFinished(t, teatest.WithFinalTimeout(3*time.Second))
+
+	if len(target.inserted) != 1 || target.inserted[0] != english {
+		t.Errorf("target received %v, want the confirmed translation", target.inserted)
+	}
+	if calls := translator.count(); calls != 1 {
+		t.Errorf("the translator was called %d times, want the shown translation reused", calls)
+	}
+}
+
+func TestConfirmationCanBeTurnedDownToKeepWriting(t *testing.T) {
+	t.Parallel()
+	target := &recordingTarget{}
+
+	overlayUnderTest := confirmingOverlay(t, stubTranslator{english: english}, target)
+	overlayUnderTest.Type(draft)
+	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyCtrlD})
+	teatest.WaitFor(t, overlayUnderTest.Output(), func(out []byte) bool {
+		return bytes.Contains(out, []byte(english))
+	}, teatest.WithDuration(3*time.Second))
+
+	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyEsc})
+	overlayUnderTest.Type(" bitte")
+
+	// Back in the draft, with the writing intact and nothing sent.
+	teatest.WaitFor(t, overlayUnderTest.Output(), func(out []byte) bool {
+		return bytes.Contains(out, []byte("Test bitte"))
+	}, teatest.WithDuration(3*time.Second))
+	if len(target.inserted) != 0 {
+		t.Errorf("target received %v, want nothing sent", target.inserted)
+	}
+
+	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyCtrlC})
+	overlayUnderTest.WaitFinished(t, teatest.WithFinalTimeout(3*time.Second))
+}
+
+func TestWithoutConfirmationSendingStaysOneKey(t *testing.T) {
+	t.Parallel()
+	target := &recordingTarget{}
+
+	overlayUnderTest := newOverlay(t, stubTranslator{english: english}, target)
+	overlayUnderTest.Type(draft)
+	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyCtrlD})
+	overlayUnderTest.WaitFinished(t, teatest.WithFinalTimeout(3*time.Second))
+
+	if len(target.inserted) != 1 {
+		t.Errorf("target received %v, want it delivered on the first key", target.inserted)
+	}
+}

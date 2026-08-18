@@ -76,6 +76,7 @@ func run(ctx context.Context) error {
 			Review:   !settings.Submit,
 			Vim:      settings.Vim,
 			Live:     settings.Live,
+			Confirm:  settings.Confirm,
 			Drafts:   drafts(settings.KeepDraft, settings.StateDir, settings.Target),
 		}),
 		tea.WithContext(ctx),

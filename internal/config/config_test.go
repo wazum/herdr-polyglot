@@ -247,3 +247,26 @@ func TestTheStateDirectoryIsPassedAlongForKeepingDrafts(t *testing.T) {
 		t.Errorf("StateDir is %q, want the directory herdr set aside", settings.StateDir)
 	}
 }
+
+func TestConfirmingBeforeSendingIsOffUnlessAskedFor(t *testing.T) {
+	t.Parallel()
+
+	settings, err := config.Load(envFrom(map[string]string{"HERDR_POLYGLOT_TARGET": "w1:p3"}))
+	if err != nil {
+		t.Fatalf("Load returned unexpected error: %v", err)
+	}
+	if settings.Confirm {
+		t.Error("Confirm is true, want sending to stay one key by default")
+	}
+
+	settings, err = config.Load(envFrom(map[string]string{
+		"HERDR_POLYGLOT_TARGET":  "w1:p3",
+		"HERDR_POLYGLOT_CONFIRM": "1",
+	}))
+	if err != nil {
+		t.Fatalf("Load returned unexpected error: %v", err)
+	}
+	if !settings.Confirm {
+		t.Error("Confirm is false, want it enabled by HERDR_POLYGLOT_CONFIRM=1")
+	}
+}

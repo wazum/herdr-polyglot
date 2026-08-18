@@ -30,7 +30,9 @@ type Options struct {
 	Review bool
 	Vim    bool
 	// Live translates the draft while it is written instead of only on send.
-	Live     bool
+	Live bool
+	// Confirm shows the English and waits for a second key before delivering.
+	Confirm  bool
 	Debounce time.Duration
 	// Drafts keeps an unfinished prompt between sessions. Without one the draft
 	// simply goes when the popup closes.
@@ -49,6 +51,8 @@ type stage int
 const (
 	composing stage = iota
 	translating
+	// confirming is the finished translation waiting to be let go.
+	confirming
 )
 
 const (
@@ -196,6 +200,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.previewOf, m.preview, m.previewError = msg.of, msg.text, msg.err
+
+		// A translation asked for in order to send it waits for the go-ahead.
+		if m.stage == translating && m.options.Confirm {
+			if msg.err != nil {
+				m.stage, m.failure = composing, msg.err
+				return m, nil
+			}
+			m.stage = confirming
+		}
 		return m, nil
 
 	case spinner.TickMsg:
@@ -222,6 +235,10 @@ func (m Model) handleKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case key.Type == tea.KeyCtrlC:
 		return m, tea.Quit
 
+	case key.Type == tea.KeyEsc && m.stage == confirming:
+		m.stage = composing
+		return m, nil
+
 	case key.Type == tea.KeyEsc && !m.draft.Modal():
 		return m.close()
 
@@ -245,10 +262,14 @@ func (m Model) handleKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	// Sending is deliberate; a bare enter belongs to the draft.
 	case key.Type == tea.KeyCtrlD, key.Type == tea.KeyEnter && key.Alt:
-		if m.stage == translating {
+		switch m.stage {
+		case translating:
 			return m, nil
+		case confirming:
+			return m.deliverPreview()
+		default:
+			return m.startSubmit()
 		}
-		return m.startSubmit()
 	}
 
 	m.failure = nil
@@ -296,6 +317,27 @@ func (m Model) startPreview() (tea.Model, tea.Cmd) {
 	}
 }
 
+// translateForConfirmation reuses the preview machinery, so the finished text
+// arrives as a reply and the confirmation shows it.
+func (m Model) translateForConfirmation() (tea.Model, tea.Cmd) {
+	model, cmd := m.startPreview()
+	confirming := model.(Model)
+	confirming.stage = translating
+	return confirming, tea.Batch(m.spinner.Tick, cmd)
+}
+
+func (m Model) deliverPreview() (tea.Model, tea.Cmd) {
+	prompt := m.preview
+	m.stage = translating
+
+	return m, tea.Batch(m.spinner.Tick, func() tea.Msg {
+		if err := m.prompter.Deliver(m.ctx, prompt); err != nil {
+			return submitFailedMsg{err: err}
+		}
+		return promptSentMsg{}
+	})
+}
+
 func (m *Model) stopPreview() {
 	if m.cancelPreview != nil {
 		m.cancelPreview()
@@ -308,6 +350,22 @@ func (m Model) startSubmit() (tea.Model, tea.Cmd) {
 	m.stage = translating
 	m.failure = nil
 	m.stopPreview()
+
+	// Nothing to confirm about an empty draft.
+	if m.options.Confirm && strings.TrimSpace(draft) == "" {
+		m.stage, m.failure = composing, promptflow.ErrBlankDraft
+		return m, nil
+	}
+
+	// Read once, sent as it stands: a translation already on screen is what the
+	// author means, whether it was asked for or arrived while writing.
+	if m.options.Confirm && m.previewIsCurrent() {
+		m.stage = confirming
+		return m, nil
+	}
+	if m.options.Confirm {
+		return m.translateForConfirmation()
+	}
 
 	// A preview the author has just read needs no second translation.
 	if m.previewIsCurrent() {

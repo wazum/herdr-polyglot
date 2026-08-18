@@ -23,6 +23,7 @@ const (
 	vimVar       = "HERDR_POLYGLOT_VIM"
 	liveVar      = "HERDR_POLYGLOT_LIVE"
 	keepDraftVar = "HERDR_POLYGLOT_KEEP_DRAFT"
+	confirmVar   = "HERDR_POLYGLOT_CONFIRM"
 	stateDirVar  = "HERDR_PLUGIN_STATE_DIR"
 	configDirVar = "HERDR_PLUGIN_CONFIG_DIR"
 	binaryVar    = "HERDR_BIN_PATH"
@@ -45,6 +46,7 @@ type Settings struct {
 	Vim         bool
 	Live        bool
 	KeepDraft   bool
+	Confirm     bool
 }
 
 // The environment wins over the .env file, so a one-off invocation can
@@ -73,6 +75,7 @@ func Load(getenv func(string) string) (Settings, error) {
 		Vim:         isEnabled(lookup(vimVar)),
 		Live:        isEnabled(lookup(liveVar)),
 		KeepDraft:   !isDisabled(lookup(keepDraftVar)),
+		Confirm:     isEnabled(lookup(confirmVar)),
 		Options: translation.Options{
 			APIKey:         orDefault(lookup(scopedKeyVar(provider)), lookup(apiKeyVar)),
 			TargetLanguage: orDefault(lookup(languageVar), defaultLanguage),

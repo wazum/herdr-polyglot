@@ -50,7 +50,7 @@ func (m Model) View() string {
 	line := lipgloss.Width(draft)
 
 	parts := []string{m.header(line), draft}
-	if m.options.Live {
+	if m.options.Live || m.stage == confirming {
 		parts = append(parts, m.englishPane())
 	}
 	parts = append(parts, m.footer(line))
@@ -99,6 +99,11 @@ func (m Model) footer(line int) string {
 	switch {
 	case m.failure != nil:
 		return spread(mode+dangerStyle.Render("✗ "+m.failure.Error()), hintStyle.Render("ctrl+c close"), line)
+	case m.stage == confirming:
+		return spread(
+			keyStyle.Render("ctrl+d")+hintStyle.Render(" send this")+
+				hintStyle.Render(" · ")+keyStyle.Render("esc")+hintStyle.Render(" keep writing"),
+			badgeStyle.Render("read it first"), line)
 	case m.stage == translating:
 		return spread(mode+m.spinner.View()+accentStyle.Render(" translating …"), "", line)
 	default:
