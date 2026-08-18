@@ -1125,7 +1125,7 @@ func TestCtrlRSwitchesToTypingWithoutSending(t *testing.T) {
 	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyCtrlR})
 
 	teatest.WaitFor(t, overlayUnderTest.Output(), func(out []byte) bool {
-		return bytes.Contains(out, []byte("· type"))
+		return bytes.Contains(out, []byte("fills the input"))
 	}, teatest.WithDuration(2*time.Second))
 
 	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyCtrlD})

@@ -101,3 +101,42 @@ func setsBackground(parameter string) bool {
 		return false
 	}
 }
+
+// Every key the popup answers to belongs on the footer line. If they stop
+// fitting, they need shorter names, not a help screen to hide behind.
+func TestTheFooterListsEveryKeyAndStillFits(t *testing.T) {
+	previous := lipgloss.ColorProfile()
+	lipgloss.SetColorProfile(termenv.Ascii)
+	defer lipgloss.SetColorProfile(previous)
+
+	const paneWidth = 87
+	for _, vim := range []bool{false, true} {
+		for _, normalMode := range []bool{false, true} {
+			flow := promptflow.New(stubTranslator{english: english}, &recordingTarget{}, &recordingTarget{})
+			var model tea.Model = overlay.New(context.Background(), flow, overlay.Options{
+				Service: "deepl", Language: "EN-US", Vim: vim, Live: true,
+			})
+			model, _ = model.Update(tea.WindowSizeMsg{Width: paneWidth, Height: 17})
+			if vim && normalMode {
+				model, _ = model.Update(tea.KeyMsg{Type: tea.KeyEsc})
+			}
+
+			footer := lastLine(model.View())
+			for _, key := range []string{"ctrl+d", "ctrl+r", "ctrl+l", "ctrl+u"} {
+				if !strings.Contains(footer, key) {
+					t.Errorf("vim=%v normal=%v: the footer does not mention %s: %q",
+						vim, normalMode, key, footer)
+				}
+			}
+			if width := lipgloss.Width(footer); width > paneWidth {
+				t.Errorf("vim=%v normal=%v: the footer is %d columns, the pane is %d: %q",
+					vim, normalMode, width, paneWidth, footer)
+			}
+		}
+	}
+}
+
+func lastLine(rendered string) string {
+	lines := strings.Split(rendered, "\n")
+	return lines[len(lines)-1]
+}

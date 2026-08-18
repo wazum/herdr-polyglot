@@ -105,8 +105,8 @@ header says which it will be.
 
 | | |
 | --- | --- |
-| `ctrl+d` | translate and send |
-| `ctrl+r` | switch between sending the prompt and only typing it into the input |
+| `ctrl+d` | translate and hand the prompt over |
+| `ctrl+r` | switch between `send` and `paste` — the header says which one is next |
 | `ctrl+l` | turn live translation on or off for this prompt |
 | `enter` | a new line, because a prompt is often more than one |
 | `esc` | close, or leave insert mode when vim bindings are on |

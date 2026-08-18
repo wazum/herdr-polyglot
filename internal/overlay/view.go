@@ -61,12 +61,7 @@ func (m Model) badge() string {
 		}
 	}
 
-	pieces = append(pieces, m.styles.badge.Render("· "+m.destination()))
-	if !m.options.Live && m.options.Pulse {
-		// Live is off, so nothing breathes; the key that turns it on is worth
-		// having in sight instead.
-		pieces = append(pieces, m.styles.badge.Render("· ctrl+l live"))
-	}
+	pieces = append(pieces, m.styles.badge.Render("· "+m.whatHappens()))
 	if m.resumed {
 		pieces = append(pieces, m.styles.badge.Render("· resumed"))
 	}
@@ -76,11 +71,27 @@ func (m Model) badge() string {
 	return strings.Join(pieces, m.styles.badge.Render(" "))
 }
 
+// The heading has room to say what will happen in words; the footer, which has
+// to hold every key, names the same thing in one.
+func (m Model) whatHappens() string {
+	if m.delivery == promptflow.Typing {
+		return "fills the input"
+	}
+	return "sends to agent"
+}
+
 func (m Model) destination() string {
 	if m.delivery == promptflow.Typing {
-		return "type"
+		return "fill"
 	}
 	return "send"
+}
+
+func (m Model) otherDestination() string {
+	if m.delivery == promptflow.Typing {
+		return "send"
+	}
+	return "fill"
 }
 
 func (m Model) footer(line int) string {
@@ -111,21 +122,24 @@ func (m Model) footer(line int) string {
 	}
 }
 
+// Every key fits on the line as long as each is named in one word, so there is
+// nothing to go looking for. The vim bindings are the exception, and they are in
+// the readme rather than the footer.
 func (m Model) keyHints() string {
-	send := [2]string{"ctrl+d", "send"}
-	if m.delivery == promptflow.Typing {
-		send = [2]string{"ctrl+d", "type"}
+	shown := [][2]string{
+		{"ctrl+d", m.destination()},
+		{"ctrl+r", "→ " + m.otherDestination()},
+		{"ctrl+l", "live"},
+		{"ctrl+u", "clear"},
 	}
 
-	shown := [][2]string{send, {"ctrl+r", m.otherDelivery()}, {"esc", "close"}}
 	switch {
 	case m.draft.Modal() && m.draft.Mode() == vimarea.Normal:
-		shown = [][2]string{send, {"ctrl+r", m.otherDelivery()}, {"i", "insert"}, {"q", "close"}}
+		shown = append(shown, [2]string{"i", "insert"}, [2]string{"q", "close"})
 	case m.draft.Modal():
-		shown = [][2]string{send, {"ctrl+r", m.otherDelivery()}, {"esc", "normal"}}
-	}
-	if m.resumed {
-		shown = append(shown, [2]string{"ctrl+u", "discard"})
+		shown = append(shown, [2]string{"esc", "normal"})
+	default:
+		shown = append(shown, [2]string{"esc", "close"})
 	}
 
 	hints := make([]string, 0, len(shown))
@@ -167,11 +181,4 @@ func compactCount(count int64) string {
 func trimZero(value float64) string {
 	rendered := strconv.FormatFloat(value, 'f', 1, 64)
 	return strings.TrimSuffix(rendered, ".0")
-}
-
-func (m Model) otherDelivery() string {
-	if m.delivery == promptflow.Typing {
-		return "send instead"
-	}
-	return "type instead"
 }
