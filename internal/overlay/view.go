@@ -19,6 +19,7 @@ var (
 	muted  = lipgloss.Color("8")
 	danger = lipgloss.Color("1")
 	frame  = lipgloss.Color("8")
+	bright = lipgloss.Color("13")
 
 	accentStyle      = lipgloss.NewStyle().Foreground(accent)
 	textStyle        = lipgloss.NewStyle()
@@ -29,6 +30,8 @@ var (
 	hintStyle        = lipgloss.NewStyle().Foreground(muted)
 	keyStyle         = lipgloss.NewStyle().Foreground(accent)
 	dangerStyle      = lipgloss.NewStyle().Foreground(danger)
+	fadedStyle       = lipgloss.NewStyle().Foreground(muted).Faint(true)
+	brightStyle      = lipgloss.NewStyle().Foreground(bright).Bold(true)
 	modeStyle        = lipgloss.NewStyle().Foreground(accent).Bold(true)
 
 	paneStyle = lipgloss.NewStyle()
@@ -82,27 +85,37 @@ func (m Model) englishPane() string {
 }
 
 func (m Model) header(line int) string {
-	destination := "send"
-	if m.options.Review {
-		destination = "review"
-	}
+	return spread(titleStyle.Render("✳ polyglot"), m.badge(), line)
+}
+
+// The badge is joined from rendered pieces: the pulse carries its own colour,
+// which a single Render around everything would cut short.
+func (m Model) badge() string {
+	pieces := []string{badgeStyle.Render(m.options.Service + " → " + m.options.Language)}
+
 	if m.options.Live {
-		live := "live"
 		if m.options.Pulse {
-			live = m.pulseGlyph() + " live"
+			pieces = append(pieces, badgeStyle.Render("·"), m.pulseGlyph(), badgeStyle.Render("live"))
+		} else {
+			pieces = append(pieces, badgeStyle.Render("· live"))
 		}
-		destination = live + " · " + destination
 	}
-	parts := []string{m.options.Service, "→", m.options.Language, "·", destination}
+
+	pieces = append(pieces, badgeStyle.Render("· "+m.destination()))
 	if m.resumed {
-		parts = append(parts, "·", "resumed")
+		pieces = append(pieces, badgeStyle.Render("· resumed"))
 	}
 	if m.spentKnown {
-		parts = append(parts, "·", spentAsWords(m.spent))
+		pieces = append(pieces, badgeStyle.Render("· "+spentAsWords(m.spent)))
 	}
-	badge := badgeStyle.Render(strings.Join(parts, " "))
+	return strings.Join(pieces, " ")
+}
 
-	return spread(titleStyle.Render("✳ polyglot"), badge, line)
+func (m Model) destination() string {
+	if m.options.Review {
+		return "review"
+	}
+	return "send"
 }
 
 func (m Model) footer(line int) string {

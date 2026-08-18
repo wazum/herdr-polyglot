@@ -122,11 +122,12 @@ type Model struct {
 	cancelPreview context.CancelFunc
 	// resumed says the draft on screen was written in an earlier session, which
 	// is worth saying until the author takes it over.
-	resumed    bool
-	spent      translation.Usage
-	spentKnown bool
-	beat       int
-	pulsing    bool
+	resumed         bool
+	spent           translation.Usage
+	spentKnown      bool
+	beat            int
+	pulsing         bool
+	translationDone bool
 	// Every cell of the pane is drawn, or the background herdr painted behind
 	// the popup shows through where the overlay stops.
 	pane tea.WindowSizeMsg
@@ -224,8 +225,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if !m.pulsing || msg.beat <= m.beat {
 			return m, nil
 		}
-		m.beat = msg.beat
-		return m, m.nextBeat(m.beat)
+		beating := m.keepBreathing(msg.beat)
+		return m, beating
 
 	case promptSentMsg:
 		m.forgetDraft()
@@ -248,17 +249,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		started, cmd := m.startPreview()
-		beating := started.(Model)
-		pulse := beating.startPulse()
-		beating.pulsing = beating.options.Pulse
-		return beating, tea.Batch(cmd, pulse)
+		breathing := started.(Model)
+		return breathing, tea.Batch(cmd, breathing.beginPulse())
 
 	case previewReadyMsg:
 		if msg.request != m.requested || errors.Is(msg.err, context.Canceled) {
 			return m, nil
 		}
 		m.previewOf, m.preview, m.previewError = msg.of, msg.text, msg.err
-		m.pulsing = false
+		m.endPulse()
 
 		// A translation asked for in order to send it waits for the go-ahead.
 		if m.stage == translating && m.options.Confirm {
