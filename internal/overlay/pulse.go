@@ -6,8 +6,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-// The circle fills and empties again, which reads as breathing rather than
-// spinning: something is working, nothing is stuck.
+// Filling and emptying again reads as breathing rather than spinning.
 var pulseFrames = []string{"○", "◔", "◑", "◕", "●", "◕", "◑", "◔"}
 
 const pulseInterval = 110 * time.Millisecond

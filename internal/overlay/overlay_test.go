@@ -992,3 +992,65 @@ func TestALongDraftCanStillBeSent(t *testing.T) {
 		t.Errorf("target received %v, want the prompt sent anyway", target.inserted)
 	}
 }
+
+func TestLiveModeShowsAPulseWhileItIsTranslating(t *testing.T) {
+	t.Parallel()
+	translator := &gatedTranslator{started: make(chan struct{}), release: make(chan struct{})}
+
+	overlayUnderTest := newOverlayWith(t, translator, &recordingTarget{}, overlay.Options{
+		Service:  "deepl",
+		Language: "EN-US",
+		Live:     true,
+		Pulse:    true,
+		Debounce: 20 * time.Millisecond,
+	})
+	overlayUnderTest.Type("Bitte behebe")
+	<-translator.started
+
+	// The circle fills and empties again, so two different states show up.
+	seen := map[string]bool{}
+	teatest.WaitFor(t, overlayUnderTest.Output(), func(out []byte) bool {
+		for _, glyph := range []string{"○", "◔", "◑", "◕", "●"} {
+			if bytes.Contains(out, []byte(glyph)) {
+				seen[glyph] = true
+			}
+		}
+		return len(seen) >= 2
+	}, teatest.WithDuration(3*time.Second))
+
+	close(translator.release)
+	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyCtrlC})
+	overlayUnderTest.WaitFinished(t, teatest.WithFinalTimeout(2*time.Second))
+}
+
+func TestWithoutThePulseLiveModeSaysSoQuietly(t *testing.T) {
+	t.Parallel()
+	translator := &gatedTranslator{started: make(chan struct{}), release: make(chan struct{})}
+
+	overlayUnderTest := newOverlayWith(t, translator, &recordingTarget{}, overlay.Options{
+		Service:  "deepl",
+		Language: "EN-US",
+		Live:     true,
+		Debounce: 20 * time.Millisecond,
+	})
+	overlayUnderTest.Type("Bitte behebe")
+	<-translator.started
+	time.Sleep(400 * time.Millisecond)
+
+	close(translator.release)
+	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyCtrlC})
+	overlayUnderTest.WaitFinished(t, teatest.WithFinalTimeout(2*time.Second))
+
+	shown, err := io.ReadAll(overlayUnderTest.Output())
+	if err != nil {
+		t.Fatalf("reading output: %v", err)
+	}
+	if !bytes.Contains(shown, []byte("live")) {
+		t.Error("live mode is not mentioned at all")
+	}
+	for _, glyph := range []string{"◔", "◑", "◕"} {
+		if bytes.Contains(shown, []byte(glyph)) {
+			t.Errorf("the header pulses with %q although the pulse is off", glyph)
+		}
+	}
+}
