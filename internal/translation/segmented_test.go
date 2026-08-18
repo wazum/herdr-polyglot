@@ -6,6 +6,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/wazum/herdr-polyglot/internal/translation"
 )
@@ -329,5 +330,63 @@ func TestSegmentedForgetsOldSentencesInsteadOfGrowingForEver(t *testing.T) {
 
 	if remembered := translation.Remembered(segmented); remembered > 512 {
 		t.Errorf("the store holds %d sentences, want it capped", remembered)
+	}
+}
+
+// Sending must not inherit the cancellation of a preview it happened to share.
+func TestSegmentedDoesNotHandOnACancelledResult(t *testing.T) {
+	t.Parallel()
+	spy := &cancelAwareTranslator{entered: make(chan struct{}), release: make(chan struct{})}
+	segmented := translation.Segmented(spy)
+
+	const draft = "Der Test schlaegt fehl."
+	abandoned, cancel := context.WithCancel(context.Background())
+
+	preview := make(chan error, 1)
+	go func() {
+		_, err := segmented.Translate(abandoned, draft)
+		preview <- err
+	}()
+	<-spy.entered
+
+	// The draft moves on: the preview is abandoned while the author sends.
+	sent := make(chan string, 1)
+	go func() {
+		translated, err := segmented.Translate(context.Background(), draft)
+		if err != nil {
+			t.Errorf("sending returned %v, want it to stand on its own", err)
+		}
+		sent <- translated
+	}()
+
+	time.Sleep(50 * time.Millisecond)
+	cancel()
+	close(spy.release)
+
+	select {
+	case translated := <-sent:
+		if translated == "" {
+			t.Error("sending produced nothing, want the translation")
+		}
+	case <-time.After(3 * time.Second):
+		t.Error("sending never finished")
+	}
+	<-preview
+}
+
+type cancelAwareTranslator struct {
+	once    sync.Once
+	entered chan struct{}
+	release chan struct{}
+}
+
+func (c *cancelAwareTranslator) Translate(ctx context.Context, text string) (string, error) {
+	c.once.Do(func() { close(c.entered) })
+
+	select {
+	case <-ctx.Done():
+		return "", ctx.Err()
+	case <-c.release:
+		return "<" + strings.TrimSpace(text) + ">", nil
 	}
 }

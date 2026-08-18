@@ -2,6 +2,7 @@ package translation
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"sync"
 )
@@ -78,42 +79,77 @@ func (s *segmented) Translate(ctx context.Context, draft string) (string, error)
 }
 
 func (s *segmented) translatePiece(ctx context.Context, piece piece, preceding string, isTail bool) (string, error) {
-	key := preceding + "\x00" + piece.text
+	return s.translateOnce(ctx, request{
+		key:       preceding + "\x00" + piece.text,
+		text:      piece.text,
+		preceding: preceding,
+		asTail:    isTail && !piece.finished,
+	})
+}
 
-	if cached, found := s.lookup(key); found {
-		return cached, nil
-	}
-
-	result, err := s.translateOnce(ctx, key, piece.text, preceding)
-	if err != nil {
-		return "", err
-	}
-
-	s.remember(key, result, isTail && !piece.finished)
-	return result, nil
+type request struct {
+	key       string
+	text      string
+	preceding string
+	asTail    bool
 }
 
 // translateOnce keeps overlapping previews from paying twice for one sentence:
-// the second caller waits for the first instead of sending its own request.
-func (s *segmented) translateOnce(ctx context.Context, key, text, preceding string) (string, error) {
-	s.mu.Lock()
-	if running, found := s.inflight[key]; found {
+// the second caller waits for the first instead of sending its own request. It
+// waits on its own terms, though — a caller that gave up must not take this one
+// down with it, which would fail a send that merely shared a sentence with an
+// abandoned preview.
+func (s *segmented) translateOnce(ctx context.Context, wanted request) (string, error) {
+	for {
+		s.mu.Lock()
+		if cached, found := s.cached(wanted.key); found {
+			s.mu.Unlock()
+			return cached, nil
+		}
+		running, found := s.inflight[wanted.key]
+		if !found {
+			running = &call{done: make(chan struct{})}
+			s.inflight[wanted.key] = running
+			s.mu.Unlock()
+			return s.send(ctx, wanted, running)
+		}
 		s.mu.Unlock()
-		<-running.done
-		return running.text, running.err
+
+		select {
+		case <-running.done:
+			switch {
+			case running.err == nil:
+				return running.text, nil
+			case gaveUp(running.err):
+				// Whoever asked first walked away; ask again for ourselves.
+				continue
+			default:
+				return "", running.err
+			}
+		case <-ctx.Done():
+			return "", ctx.Err()
+		}
 	}
-	running := &call{done: make(chan struct{})}
-	s.inflight[key] = running
-	s.mu.Unlock()
+}
 
-	running.text, running.err = s.callTranslator(ctx, text, preceding)
-	close(running.done)
+func (s *segmented) send(ctx context.Context, wanted request, running *call) (string, error) {
+	running.text, running.err = s.callTranslator(ctx, wanted.text, wanted.preceding)
 
+	// Remember and step aside under one lock, so nobody starts the same request
+	// in the gap between the two.
 	s.mu.Lock()
-	delete(s.inflight, key)
+	if running.err == nil {
+		s.keep(wanted.key, running.text, wanted.asTail)
+	}
+	delete(s.inflight, wanted.key)
 	s.mu.Unlock()
 
+	close(running.done)
 	return running.text, running.err
+}
+
+func gaveUp(err error) bool {
+	return errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)
 }
 
 func (s *segmented) callTranslator(ctx context.Context, text, preceding string) (string, error) {
@@ -123,10 +159,8 @@ func (s *segmented) callTranslator(ctx context.Context, text, preceding string) 
 	return s.translator.Translate(ctx, text)
 }
 
-func (s *segmented) lookup(key string) (string, bool) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
+// cached expects the lock to be held.
+func (s *segmented) cached(key string) (string, bool) {
 	if cached, found := s.known[key]; found {
 		return cached, true
 	}
@@ -136,10 +170,8 @@ func (s *segmented) lookup(key string) (string, bool) {
 	return "", false
 }
 
-func (s *segmented) remember(key, translated string, asTail bool) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
+// keep expects the lock to be held.
+func (s *segmented) keep(key, translated string, asTail bool) {
 	if asTail {
 		s.tailKey, s.tailText = key, translated
 		return
