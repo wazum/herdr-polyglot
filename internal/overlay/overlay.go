@@ -219,7 +219,11 @@ type (
 func (m Model) Init() tea.Cmd {
 	// The allowance is asked for after the box is already on screen, so nothing
 	// waits for the network.
-	return tea.Batch(textarea.Blink, m.askUsage())
+	started := []tea.Cmd{textarea.Blink, m.askUsage()}
+	if m.resumed && m.options.Live {
+		started = append(started, m.schedulePreview())
+	}
+	return tea.Batch(started...)
 }
 
 func (m Model) askUsage() tea.Cmd {

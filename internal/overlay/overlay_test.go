@@ -721,6 +721,26 @@ func TestADraftThatCannotBeKeptIsNotSilentlyLost(t *testing.T) {
 	overlayUnderTest.WaitFinished(t, teatest.WithFinalTimeout(2*time.Second))
 }
 
+// A draft that comes back is waiting to be worked on, so live mode translates it
+// without waiting for a keystroke.
+func TestALiveOverlayTranslatesAResumedDraftAtOnce(t *testing.T) {
+	t.Parallel()
+	drafts := &fakeDrafts{kept: "Bitte behebe den Test"}
+
+	overlayUnderTest := newOverlayWith(t, stubTranslator{english: english}, &recordingTarget{},
+		overlay.Options{
+			Service: "deepl", Language: "EN-US", Live: true,
+			Debounce: 10 * time.Millisecond, Drafts: drafts,
+		})
+
+	teatest.WaitFor(t, overlayUnderTest.Output(), func(out []byte) bool {
+		return bytes.Contains(out, []byte(english))
+	}, teatest.WithDuration(2*time.Second))
+
+	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyCtrlC})
+	overlayUnderTest.WaitFinished(t, teatest.WithFinalTimeout(2*time.Second))
+}
+
 // Herdr closes a popup by hanging up on it, and ctrl+c never reaches the close
 // key either. Whatever ends the session, the writing has to survive it.
 func TestADraftSurvivesAnEndingNobodyAskedFor(t *testing.T) {
