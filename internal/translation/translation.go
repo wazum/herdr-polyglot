@@ -2,7 +2,10 @@
 // the registry of the services this build knows about.
 package translation
 
-import "context"
+import (
+	"context"
+	"errors"
+)
 
 type Translator interface {
 	Translate(ctx context.Context, draft string) (string, error)
@@ -29,4 +32,24 @@ type Usage struct {
 // Not every service keeps count, so this is asked for rather than required.
 type UsageReporter interface {
 	Usage(ctx context.Context) (Usage, error)
+}
+
+// ErrNoUsage says the service does not report what it has spent.
+var ErrNoUsage = errors.New("the service keeps no count")
+
+// ReporterOf looks through anything that wraps a translator, so a service behind
+// a cache still reports its allowance.
+func ReporterOf(translator Translator) (UsageReporter, error) {
+	for translator != nil {
+		if reporter, keepsCount := translator.(UsageReporter); keepsCount {
+			return reporter, nil
+		}
+
+		wrapper, wraps := translator.(interface{ Unwrap() Translator })
+		if !wraps {
+			break
+		}
+		translator = wrapper.Unwrap()
+	}
+	return nil, ErrNoUsage
 }

@@ -243,3 +243,20 @@ func TestAServiceThatKeepsNoCountSaysSo(t *testing.T) {
 		t.Error("Usage claims a count, want it to say the service keeps none")
 	}
 }
+
+// Live mode wraps the service in a cache; the allowance must still come through.
+func TestUsageIsFoundThroughAWrappedService(t *testing.T) {
+	translator := &reportingTranslator{spent: translation.Usage{Used: 4321, Limit: 1_000_000}}
+
+	spent, reported, err := promptflow.New(translation.Segmented(translator), &recordingTarget{}).
+		Usage(context.Background())
+	if err != nil {
+		t.Fatalf("Usage returned unexpected error: %v", err)
+	}
+	if !reported {
+		t.Fatal("Usage says nothing is reported behind the cache, want it found")
+	}
+	if spent.Used != 4321 {
+		t.Errorf("Usage returned %+v, want 4321 used", spent)
+	}
+}

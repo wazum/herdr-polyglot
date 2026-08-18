@@ -390,3 +390,42 @@ func (c *cancelAwareTranslator) Translate(ctx context.Context, text string) (str
 		return "<" + strings.TrimSpace(text) + ">", nil
 	}
 }
+
+// Wrapping a service must not hide what it reports about its allowance.
+func TestSegmentedPassesOnWhatTheServiceSpent(t *testing.T) {
+	t.Parallel()
+	reporting := &reportingSpy{spent: translation.Usage{Used: 4321, Limit: 1_000_000}}
+
+	spent, err := translation.ReporterOf(translation.Segmented(reporting))
+	if err != nil {
+		t.Fatalf("no reporter found behind the cache: %v", err)
+	}
+
+	got, err := spent.Usage(context.Background())
+	if err != nil {
+		t.Fatalf("Usage returned unexpected error: %v", err)
+	}
+	if got != reporting.spent {
+		t.Errorf("Usage returned %+v, want %+v", got, reporting.spent)
+	}
+}
+
+func TestAWrappedServiceThatKeepsNoCountIsNotMistakenForOne(t *testing.T) {
+	t.Parallel()
+
+	if _, err := translation.ReporterOf(translation.Segmented(&stubProviderTranslator{})); err == nil {
+		t.Error("a reporter was found behind a service that keeps no count")
+	}
+}
+
+type reportingSpy struct {
+	spent translation.Usage
+}
+
+func (r *reportingSpy) Translate(_ context.Context, text string) (string, error) {
+	return "<" + strings.TrimSpace(text) + ">", nil
+}
+
+func (r *reportingSpy) Usage(context.Context) (translation.Usage, error) {
+	return r.spent, nil
+}

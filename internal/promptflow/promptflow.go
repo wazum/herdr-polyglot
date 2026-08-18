@@ -53,9 +53,12 @@ func (f *Flow) Translate(ctx context.Context, draft string) (string, error) {
 
 // The second result says whether the service keeps count at all.
 func (f *Flow) Usage(ctx context.Context) (translation.Usage, bool, error) {
-	reporter, keepsCount := f.translator.(translation.UsageReporter)
-	if !keepsCount {
+	reporter, err := translation.ReporterOf(f.translator)
+	if errors.Is(err, translation.ErrNoUsage) {
 		return translation.Usage{}, false, nil
+	}
+	if err != nil {
+		return translation.Usage{}, false, err
 	}
 
 	spent, err := reporter.Usage(ctx)

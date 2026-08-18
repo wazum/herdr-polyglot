@@ -199,3 +199,5 @@ func contextBefore(pieces []piece, index int) string {
 	}
 	return strings.TrimSpace(before.String())
 }
+
+func (s *segmented) Unwrap() Translator { return s.translator }
