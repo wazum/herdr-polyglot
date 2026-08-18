@@ -30,10 +30,11 @@ func (m Model) View() string {
 // there is a draft to read.
 func (m Model) draftBody() string {
 	body := m.draft.View()
-	if !m.options.Logo || m.draft.Value() != "" {
-		return body
+	if m.options.Logo && m.draft.Value() == "" {
+		body = m.sign(body)
 	}
-	return m.sign(body)
+	first, visible, total := m.draftScroll()
+	return m.scrolled(body, first, visible, total)
 }
 
 func (m Model) englishPane() string {
@@ -47,7 +48,13 @@ func (m Model) englishPane() string {
 			body = m.styles.placeholder.Render(m.preview)
 		}
 	}
-	return m.styles.englishBox.Width(m.width).Render(body)
+	// The box holds the rows it holds: a longer translation scrolls to its end
+	// rather than growing the box and pushing the footer off the pane.
+	rows := englishRows - 2
+	total := rowsOf(body, m.contentWidth())
+	shown := lastRows(body, m.contentWidth(), rows)
+	return m.styles.englishBox.Width(m.width).
+		Render(m.scrolled(shown, max(total-rows, 0), rows, total))
 }
 
 // Herdr writes the plugin's name on the popup frame, so the heading is only the
@@ -153,14 +160,23 @@ func (m Model) footer(line int) string {
 	case m.stage == translating:
 		return spread(" "+m.spinner.View()+m.styles.accent.Render(" translating …"), mode, inner)
 	default:
-		return spread(" "+m.keyHints(), mode, inner)
+		return spread(" "+m.keyHints(roomBeside(mode, inner)), mode, inner)
 	}
+}
+
+// roomBeside is what a line has left for the hints once the mode has its place.
+func roomBeside(mode string, inner int) int {
+	room := inner - 1
+	if mode != "" {
+		room -= lipgloss.Width(mode) + 1
+	}
+	return room
 }
 
 // Every key fits on the line as long as each is named in one word, so there is
 // nothing to go looking for. The vim bindings are the exception, and they are in
 // the readme rather than the footer.
-func (m Model) keyHints() string {
+func (m Model) keyHints(room int) string {
 	shown := [][2]string{
 		{"alt+enter", m.destination()},
 		{"ctrl+r", "→ " + m.otherDestination()},
@@ -177,24 +193,59 @@ func (m Model) keyHints() string {
 		shown = append(shown, [2]string{"ctrl+u", "clear"}, [2]string{"esc", "close"})
 	}
 
-	hints := make([]string, 0, len(shown))
+	// A pane too narrow for every key shows the ones it has room for. Half a key
+	// name is worth less than none.
+	separator := m.styles.hint.Render(" · ")
+	line, width := "", 0
 	for _, hint := range shown {
-		hints = append(hints, m.styles.key.Render(hint[0])+m.styles.hint.Render(" "+hint[1]))
+		drawn := m.styles.key.Render(hint[0]) + m.styles.hint.Render(" "+hint[1])
+		needed := lipgloss.Width(drawn)
+		if line != "" {
+			needed += lipgloss.Width(separator)
+		}
+		if width+needed > room {
+			break
+		}
+		if line != "" {
+			line += separator
+		}
+		line += drawn
+		width += needed
 	}
-	return strings.Join(hints, m.styles.hint.Render(" · "))
+	return line
+}
+
+// lastRows keeps the end of the text, where the newest writing is.
+func lastRows(text string, width, rows int) string {
+	if width < 1 || rows < 1 {
+		return text
+	}
+
+	lines := strings.Split(wrapped(text, width), "\n")
+	if len(lines) <= rows {
+		return strings.Join(lines, "\n")
+	}
+	return strings.Join(lines[len(lines)-rows:], "\n")
 }
 
 // spread pins left to the start of the line and right to its end.
 func spread(left, right string, line int) string {
+	// Nothing here may outgrow the line: a wrapped footer would push the draft up
+	// and the popup out of the pane.
 	if right == "" {
-		return left
+		return cutTo(left, line)
 	}
 
 	gap := line - lipgloss.Width(left) - lipgloss.Width(right)
 	if gap < 1 {
-		return left + " " + right
+		// Too narrow for both, and the keys are worth more than the mode.
+		return cutTo(left, line)
 	}
 	return left + strings.Repeat(" ", gap) + right
+}
+
+func cutTo(text string, width int) string {
+	return lipgloss.NewStyle().MaxWidth(width).Render(text)
 }
 
 // Short enough for a header: 12.3k/1M.

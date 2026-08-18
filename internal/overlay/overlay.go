@@ -91,9 +91,11 @@ const (
 
 	dialogRows  = 10 // heading, draft box and footer
 	englishRows = 5  // the pane holding the translation
-	// draftFrame is the border around the draft. Its padding is not counted:
-	// lipgloss measures a width as including padding but not the border.
+	// draftFrame is the border around a box, boxPadding the column either side of
+	// its content. Lipgloss counts a width as content plus padding, so what is
+	// drawn inside a box is boxPadding narrower than the width it is given.
 	draftFrame = 2
+	boxPadding = 2
 	headerRows = 1
 	footerRows = 1
 
@@ -367,7 +369,9 @@ func (m *Model) startNoticeClock() tea.Cmd {
 
 func (m *Model) resize(contentWidth int) {
 	m.width = min(max(contentWidth, minContentWidth), maxContentWidth)
-	m.draft.SetWidth(m.width)
+	// The text area wraps at the width the box shows, or the box wraps again what
+	// the area already wrapped and words drop onto lines nobody asked for.
+	m.draft.SetWidth(m.contentWidth())
 	m.draft.SetHeight(m.draftRows())
 }
 

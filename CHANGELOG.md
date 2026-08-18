@@ -7,6 +7,16 @@ the versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- Text no longer wraps twice. The draft box was two columns wider than what it
+  showed, so a line was wrapped once by the text area and again by the box, which
+  dropped words onto lines of their own.
+- The popup keeps its shape whatever is written in it. A long translation used to
+  grow its box and push the footer out of the pane; both boxes now scroll, with a
+  bar showing how much is out of view, and the keys drop off the footer one at a
+  time when a pane is too narrow for them.
+
 ## [0.3.0] - 2026-08-18
 
 ### Added

@@ -136,6 +136,10 @@ func (m *Model) SetWidth(width int)   { m.area.SetWidth(width) }
 func (m *Model) SetHeight(height int) { m.area.SetHeight(height) }
 func (m *Model) Focus() tea.Cmd       { return m.area.Focus() }
 
+// RowOffset is how far the cursor sits into the wrapped rows of its own line,
+// which is what a caller needs to know where the view is scrolled to.
+func (m Model) RowOffset() int { return m.area.LineInfo().RowOffset }
+
 func (m Model) View() string { return m.area.View() }
 
 func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {

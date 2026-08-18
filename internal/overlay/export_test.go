@@ -42,3 +42,14 @@ func ShowsEnglish(m Model, live bool) bool {
 	m.options.Live = live
 	return m.showsEnglish()
 }
+
+// PreviewShown hands the model a finished translation for a draft, so a test can
+// lay out a full popup without a service.
+func PreviewShown(draft, english string) tea.Msg {
+	return previewReadyMsg{of: draft, text: english}
+}
+
+const (
+	ScrollThumb = scrollThumb
+	ScrollTrack = scrollTrack
+)
