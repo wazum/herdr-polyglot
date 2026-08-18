@@ -114,6 +114,9 @@ header says which it will be.
 | `ctrl+u` | throw the draft away, as it clears a line in a shell |
 | `ctrl+c` | close, always |
 
+When something did not work — a blank draft, a service that says no — the footer
+says so, `esc` takes the message away, and it goes by itself after a few seconds.
+
 The header says what `ctrl+d` will do: `sends to agent` hands the prompt over and
 the agent starts working, `fills the input` only types it there and leaves the
 final keystroke to you.

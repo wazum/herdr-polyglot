@@ -30,8 +30,8 @@ download() {
 	work="$(mktemp -d)"
 	trap 'rm -rf "$work"' RETURN
 
-	curl -fsSL "${base}/${archive}" -o "${work}/${archive}" || return 1
-	curl -fsSL "${base}/${archive}.sha256" -o "${work}/${archive}.sha256" || return 1
+	curl -fsL "${base}/${archive}" -o "${work}/${archive}" || return 1
+	curl -fsL "${base}/${archive}.sha256" -o "${work}/${archive}.sha256" || return 1
 
 	# A checksum published beside the archive is worth checking: this binary is
 	# about to be run by a keypress.
