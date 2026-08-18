@@ -88,6 +88,7 @@ func run(ctx context.Context) error {
 			Vim:      settings.Vim,
 			Live:     settings.Live,
 			Confirm:  settings.Confirm,
+			Pulse:    settings.Pulse,
 			MaxDraft: settings.MaxDraft,
 			Drafts:   drafts(settings.KeepDraft, settings.StateDir, settings.Target),
 		}),

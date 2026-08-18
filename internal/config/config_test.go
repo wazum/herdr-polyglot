@@ -294,3 +294,26 @@ func TestWithoutAConfigDirectoryNoDotEnvIsRead(t *testing.T) {
 		t.Errorf("ConfigFile is %q, want none without a config directory", settings.ConfigFile)
 	}
 }
+
+func TestThePulseIsOnUnlessTurnedOff(t *testing.T) {
+	t.Parallel()
+
+	settings, err := config.Load(envFrom(map[string]string{"HERDR_POLYGLOT_TARGET": "w1:p3"}))
+	if err != nil {
+		t.Fatalf("Load returned unexpected error: %v", err)
+	}
+	if !settings.Pulse {
+		t.Error("Pulse is false, want the live indicator to breathe by default")
+	}
+
+	settings, err = config.Load(envFrom(map[string]string{
+		"HERDR_POLYGLOT_TARGET": "w1:p3",
+		"HERDR_POLYGLOT_PULSE":  "0",
+	}))
+	if err != nil {
+		t.Fatalf("Load returned unexpected error: %v", err)
+	}
+	if settings.Pulse {
+		t.Error("Pulse is true, want it turned off by HERDR_POLYGLOT_PULSE=0")
+	}
+}

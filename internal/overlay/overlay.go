@@ -41,6 +41,8 @@ type Options struct {
 	// MaxDraft is how long a prompt may get before the box says something. This
 	// is a place for prompts, not for pasted files.
 	MaxDraft int
+	// Pulse fills and empties a circle beside "live" while a translation runs.
+	Pulse bool
 	// Drafts keeps an unfinished prompt between sessions. Without one the draft
 	// simply goes when the popup closes.
 	Drafts Drafts
@@ -73,8 +75,11 @@ const (
 	// PopupBorder is the frame herdr draws around a popup pane.
 	PopupBorder = 2
 
-	dialogRows  = 12 // outer frame, heading, draft box and footer
+	dialogRows  = 10 // heading, draft box and footer
 	englishRows = 5  // the pane holding the translation
+	// draftFrame is the border around the draft. Its padding is not counted:
+	// lipgloss measures a width as including padding but not the border.
+	draftFrame = 2
 
 	// PopupWidth keeps the dialog to the width of a comfortable prompt; the
 	// dialog then fills the popup exactly, leaving no unused space.
@@ -119,6 +124,8 @@ type Model struct {
 	resumed    bool
 	spent      translation.Usage
 	spentKnown bool
+	beat       int
+	pulsing    bool
 }
 
 func New(ctx context.Context, prompter Prompter, options Options) Model {
@@ -198,7 +205,7 @@ func (m Model) askUsage() tea.Cmd {
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		m.resize(msg.Width - 6)
+		m.resize(msg.Width - draftFrame)
 		return m, nil
 
 	case tea.KeyMsg:
@@ -207,6 +214,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case usageMsg:
 		m.spent, m.spentKnown = msg.spent, msg.reported && msg.spent.Limit > 0
 		return m, nil
+
+	case pulseMsg:
+		if !m.pulsing || msg.beat <= m.beat {
+			return m, nil
+		}
+		m.beat = msg.beat
+		return m, m.nextBeat(m.beat)
 
 	case promptSentMsg:
 		m.forgetDraft()
@@ -228,13 +242,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.revision != m.revision || m.stage == translating {
 			return m, nil
 		}
-		return m.startPreview()
+		started, cmd := m.startPreview()
+		beating := started.(Model)
+		pulse := beating.startPulse()
+		beating.pulsing = beating.options.Pulse
+		return beating, tea.Batch(cmd, pulse)
 
 	case previewReadyMsg:
 		if msg.request != m.requested || errors.Is(msg.err, context.Canceled) {
 			return m, nil
 		}
 		m.previewOf, m.preview, m.previewError = msg.of, msg.text, msg.err
+		m.pulsing = false
 
 		// A translation asked for in order to send it waits for the go-ahead.
 		if m.stage == translating && m.options.Confirm {
