@@ -7,6 +7,14 @@ the versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- Code is no longer translated. Backticked spans and fenced blocks are taken out
+  of the draft before it is sent and put back exactly as they were, so identifiers
+  keep their names, comments and string literals stay as written, and indentation
+  survives. The code never reaches the service, so it costs nothing to translate
+  and stays on your machine.
+
 ## [0.2.0] - 2026-08-18
 
 ### Added

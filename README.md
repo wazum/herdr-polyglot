@@ -125,6 +125,12 @@ as it stands, so writing costs little more than sending —
 draft that came back from an earlier session and for text you paste in, since
 neither is something you asked to have translated; `ctrl+l` turns it on.
 
+**Code is not translated.** A translation service rewrites code as if it were
+prose: it renames identifiers, translates comments and string literals, and
+reformats indentation. So anything in backticks or a fenced ``` block is taken out
+of the draft before it is sent, and put back exactly as it was — which also means
+it never leaves your machine and costs nothing to translate.
+
 **Vim bindings.** `HERDR_POLYGLOT_VIM=1` makes the draft box modal, with the
 motions, edits and counts that make sense inside a text box —
 [the full list](docs/vim.md).
@@ -135,6 +141,9 @@ The draft goes to the translation service, so treat it the way you treat
 anything you paste into a web translator: prompts for a coding agent carry file
 paths, code and occasionally a secret, and in live mode the draft goes out again
 after every pause in typing.
+
+Code does not leave either: backticked spans and fenced blocks are held back and
+restored afterwards, so a pasted stack trace or a file path is not sent anywhere.
 
 Nothing else leaves. The API key goes to the translation service only — never to
 the agent, the *herdr* socket, a command line or a child process. Translated

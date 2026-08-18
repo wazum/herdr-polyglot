@@ -84,14 +84,17 @@ func run(ctx context.Context) error {
 	flowOptions := []promptflow.Option{
 		// Writing means translating the same draft again and again, so a preview
 		// pays for each sentence once. Live translation can be switched on at any
-		// time, so this is set up whether it starts on or off.
-		promptflow.WithPreviewTranslator(translation.Segmented(translator)),
+		// time, so this is set up whether it starts on or off. Protecting sits
+		// outside the cache, so a fenced block is taken out before the draft is
+		// split into sentences.
+		promptflow.WithPreviewTranslator(
+			translation.Protecting(translation.Segmented(translator))),
 	}
 	if spending, err := spendingOf(translator); err == nil {
 		flowOptions = append(flowOptions, promptflow.WithUsageReporter(spending))
 	}
 
-	flow := promptflow.New(translator,
+	flow := promptflow.New(translation.Protecting(translator),
 		herdr.NewAgentPrompt(runner, settings.Target),
 		herdr.NewPaneText(runner, settings.Target),
 		flowOptions...,

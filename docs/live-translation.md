@@ -30,6 +30,29 @@ instead of sending its own. A preview that is abandoned — because you kept
 typing — is cancelled, and a caller still waiting simply asks again rather than
 inheriting the cancellation.
 
+## Code is held back
+
+A service translates code as if it were prose. Measured against *DeepL*: a
+function name in backticks came back renamed, and a fenced Go block came back with
+its identifiers translated, its comment in English, its string literal rewritten
+and its tabs turned into spaces. An agent given that would look for a function
+that does not exist.
+
+So code is taken out of the draft before it is sent. Every backticked span and
+every fenced block — including one still being typed, which has no closing fence
+yet — is replaced by a marker like `⟦0⟧`, and put back verbatim afterwards. The
+service sees a whole sentence with one token where the code was, so the grammar
+around it survives; the code itself never travels, which costs nothing and keeps
+it off the network.
+
+Markers are checked on the way back. If a service drops one or repeats it, the
+translation is refused rather than delivered with a hole in it, because a prompt
+whose code has quietly gone missing is worse than an error.
+
+Quoted strings are deliberately *not* protected. `Ändere den String "Kunde nicht
+gefunden" auf Englisch` is a prompt where translating the quoted text is exactly
+what was meant, so quotes carry no reliable intent. Backticks do.
+
 ## Sending costs nothing extra
 
 If the English on screen belongs to the draft as it stands, that text is what is
