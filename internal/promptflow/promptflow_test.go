@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/wazum/herdr-polyglot/internal/promptflow"
-	"github.com/wazum/herdr-polyglot/internal/translation"
 )
 
 type stubTranslator struct {
@@ -209,19 +208,19 @@ func TestTranslateStripsControlCharactersButKeepsLineBreaks(t *testing.T) {
 	}
 }
 
-type reportingTranslator struct {
-	stubTranslator
-	spent translation.Usage
-}
+type reportingService struct{ spent promptflow.Usage }
 
-func (r *reportingTranslator) Usage(context.Context) (translation.Usage, error) {
+func (r reportingService) Usage(context.Context) (promptflow.Usage, error) {
 	return r.spent, nil
 }
 
 func TestUsageComesFromTheServiceWhenItKeepsCount(t *testing.T) {
-	translator := &reportingTranslator{spent: translation.Usage{Used: 1234, Limit: 500000}}
+	target := &recordingTarget{}
 
-	spent, reported, err := promptflow.New(translator, &recordingTarget{}, &recordingTarget{}).
+	spent, reported, err := promptflow.New(&stubTranslator{}, target, target,
+		promptflow.WithUsageReporter(reportingService{
+			spent: promptflow.Usage{Used: 1234, Limit: 500_000},
+		})).
 		Usage(context.Background())
 	if err != nil {
 		t.Fatalf("Usage returned unexpected error: %v", err)
@@ -229,7 +228,7 @@ func TestUsageComesFromTheServiceWhenItKeepsCount(t *testing.T) {
 	if !reported {
 		t.Fatal("Usage says the service keeps no count, want it reported")
 	}
-	if spent.Used != 1234 || spent.Limit != 500000 {
+	if spent.Used != 1234 || spent.Limit != 500_000 {
 		t.Errorf("Usage returned %+v, want 1234 of 500000", spent)
 	}
 }
@@ -242,24 +241,6 @@ func TestAServiceThatKeepsNoCountSaysSo(t *testing.T) {
 	}
 	if reported {
 		t.Error("Usage claims a count, want it to say the service keeps none")
-	}
-}
-
-// Live mode wraps the service in a cache; the allowance must still come through.
-func TestUsageIsFoundThroughAWrappedService(t *testing.T) {
-	translator := &reportingTranslator{spent: translation.Usage{Used: 4321, Limit: 1_000_000}}
-
-	target := &recordingTarget{}
-	spent, reported, err := promptflow.New(translation.Segmented(translator), target, target).
-		Usage(context.Background())
-	if err != nil {
-		t.Fatalf("Usage returned unexpected error: %v", err)
-	}
-	if !reported {
-		t.Fatal("Usage says nothing is reported behind the cache, want it found")
-	}
-	if spent.Used != 4321 {
-		t.Errorf("Usage returned %+v, want 4321 used", spent)
 	}
 }
 

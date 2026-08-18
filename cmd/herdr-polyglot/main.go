@@ -81,13 +81,20 @@ func run(ctx context.Context) error {
 	defer stopListening()
 
 	runner := herdr.NewExecRunner(settings.HerdrBinary)
-	flow := promptflow.New(translator,
-		herdr.NewAgentPrompt(runner, settings.Target),
-		herdr.NewPaneText(runner, settings.Target),
+	flowOptions := []promptflow.Option{
 		// Writing means translating the same draft again and again, so a preview
 		// pays for each sentence once. Live translation can be switched on at any
 		// time, so this is set up whether it starts on or off.
 		promptflow.WithPreviewTranslator(translation.Segmented(translator)),
+	}
+	if spending, err := spendingOf(translator); err == nil {
+		flowOptions = append(flowOptions, promptflow.WithUsageReporter(spending))
+	}
+
+	flow := promptflow.New(translator,
+		herdr.NewAgentPrompt(runner, settings.Target),
+		herdr.NewPaneText(runner, settings.Target),
+		flowOptions...,
 	)
 	program := tea.NewProgram(
 		overlay.New(ctx, flow, overlay.Options{
@@ -118,6 +125,27 @@ func run(ctx context.Context) error {
 		return fmt.Errorf("running overlay: %w", err)
 	}
 	return nil
+}
+
+// spendingOf asks the service what it has spent, in the application's words. Only
+// this layer knows both vocabularies, which is what keeps the translation package
+// out of the use case.
+func spendingOf(translator translation.Translator) (promptflow.UsageReporter, error) {
+	reporter, err := translation.ReporterOf(translator)
+	if err != nil {
+		return nil, err
+	}
+	return spendingReporter{reporter}, nil
+}
+
+type spendingReporter struct{ reporter translation.UsageReporter }
+
+func (s spendingReporter) Usage(ctx context.Context) (promptflow.Usage, error) {
+	spent, err := s.reporter.Usage(ctx)
+	if err != nil {
+		return promptflow.Usage{}, err
+	}
+	return promptflow.Usage{Used: spent.Used, Limit: spent.Limit}, nil
 }
 
 // drafts keeps an unfinished prompt for this pane, unless the author would

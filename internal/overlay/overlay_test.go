@@ -15,7 +15,6 @@ import (
 
 	"github.com/wazum/herdr-polyglot/internal/overlay"
 	"github.com/wazum/herdr-polyglot/internal/promptflow"
-	"github.com/wazum/herdr-polyglot/internal/translation"
 )
 
 const (
@@ -63,11 +62,13 @@ func newOverlayWith(
 	translator promptflow.Translator,
 	target promptflow.Target,
 	options overlay.Options,
+	flowOptions ...promptflow.Option,
 ) *teatest.TestModel {
 	t.Helper()
 	return teatest.NewTestModel(
 		t,
-		overlay.New(context.Background(), promptflow.New(translator, target, target), options),
+		overlay.New(context.Background(),
+			promptflow.New(translator, target, target, flowOptions...), options),
 		teatest.WithInitialTermSize(80, 20),
 	)
 }
@@ -935,23 +936,19 @@ func TestWithoutConfirmationSendingStaysOneKey(t *testing.T) {
 	}
 }
 
-type spendingTranslator struct {
-	stubTranslator
-	spent translation.Usage
-}
+type spendingService struct{ spent promptflow.Usage }
 
-func (s spendingTranslator) Usage(context.Context) (translation.Usage, error) {
+func (s spendingService) Usage(context.Context) (promptflow.Usage, error) {
 	return s.spent, nil
 }
 
 func TestTheHeaderShowsWhatTheKeyHasSpent(t *testing.T) {
 	t.Parallel()
-	translator := spendingTranslator{
-		stubTranslator: stubTranslator{english: english},
-		spent:          translation.Usage{Used: 12345, Limit: 1_000_000},
-	}
-
-	overlayUnderTest := newOverlay(t, translator, &recordingTarget{})
+	overlayUnderTest := newOverlayWith(t, stubTranslator{english: english}, &recordingTarget{},
+		overlay.Options{Service: "deepl", Language: "EN-US", Vim: true},
+		promptflow.WithUsageReporter(spendingService{
+			spent: promptflow.Usage{Used: 12345, Limit: 1_000_000},
+		}))
 
 	// Compact, because the header is narrow: 12.3k of 1M.
 	teatest.WaitFor(t, overlayUnderTest.Output(), func(out []byte) bool {

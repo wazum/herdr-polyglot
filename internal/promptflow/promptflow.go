@@ -7,8 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-
-	"github.com/wazum/herdr-polyglot/internal/translation"
 )
 
 var ErrBlankDraft = errors.New("nothing to translate — the draft is empty")
@@ -19,6 +17,19 @@ type Translator interface {
 
 type Target interface {
 	Insert(ctx context.Context, text string) error
+}
+
+// Usage is what a translation service has spent, in the characters services
+// charge by.
+type Usage struct {
+	Used  int64
+	Limit int64
+}
+
+// UsageReporter is a service that keeps count. Not every one does, so the
+// composition root hands this over only when there is something to ask.
+type UsageReporter interface {
+	Usage(ctx context.Context) (Usage, error)
 }
 
 // Delivery is how a finished prompt reaches the agent: handed over and sent, or
@@ -39,6 +50,8 @@ type Flow struct {
 	// fields rather than a map that could hold a third.
 	sender Target
 	typer  Target
+	// spending is optional: without it the overlay simply shows no count.
+	spending UsageReporter
 }
 
 type Option func(*Flow)
@@ -47,6 +60,11 @@ type Option func(*Flow)
 // it, previews go the same way as a send.
 func WithPreviewTranslator(previewing Translator) Option {
 	return func(f *Flow) { f.preview = previewing }
+}
+
+// WithUsageReporter says where to ask what the service has spent.
+func WithUsageReporter(spending UsageReporter) Option {
+	return func(f *Flow) { f.spending = spending }
 }
 
 func New(translator Translator, sending, typing Target, options ...Option) *Flow {
@@ -90,18 +108,14 @@ func (f *Flow) translate(ctx context.Context, translator Translator, draft strin
 }
 
 // The second result says whether the service keeps count at all.
-func (f *Flow) Usage(ctx context.Context) (translation.Usage, bool, error) {
-	reporter, err := translation.ReporterOf(f.translator)
-	if errors.Is(err, translation.ErrNoUsage) {
-		return translation.Usage{}, false, nil
-	}
-	if err != nil {
-		return translation.Usage{}, false, err
+func (f *Flow) Usage(ctx context.Context) (Usage, bool, error) {
+	if f.spending == nil {
+		return Usage{}, false, nil
 	}
 
-	spent, err := reporter.Usage(ctx)
+	spent, err := f.spending.Usage(ctx)
 	if err != nil {
-		return translation.Usage{}, true, err
+		return Usage{}, true, err
 	}
 	return spent, true, nil
 }

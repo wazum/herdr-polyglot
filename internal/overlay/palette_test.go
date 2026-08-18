@@ -14,7 +14,6 @@ import (
 
 	"github.com/wazum/herdr-polyglot/internal/overlay"
 	"github.com/wazum/herdr-polyglot/internal/promptflow"
-	"github.com/wazum/herdr-polyglot/internal/translation"
 )
 
 // Herdr does not tell plugins which theme is active, but it does paint the
@@ -198,7 +197,7 @@ func TestTheHeadingNeverOutgrowsThePane(t *testing.T) {
 		Review: true, Drafts: keptDraft{},
 	})
 	model, _ = model.Update(tea.WindowSizeMsg{Width: paneWidth, Height: 17})
-	model, _ = model.Update(overlay.UsageSeen(translation.Usage{Used: 999_900, Limit: 1_000_000}))
+	model, _ = model.Update(overlay.UsageSeen(promptflow.Usage{Used: 999_900, Limit: 1_000_000}))
 
 	heading := strings.Split(model.View(), "\n")[0]
 	if width := lipgloss.Width(heading); width > paneWidth-1 {

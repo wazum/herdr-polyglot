@@ -3,7 +3,7 @@ package overlay
 import (
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/wazum/herdr-polyglot/internal/translation"
+	"github.com/wazum/herdr-polyglot/internal/promptflow"
 )
 
 const DraftHeight = draftHeight
@@ -20,7 +20,7 @@ func PromptDelivered() tea.Msg { return promptSentMsg{} }
 func BlankDraftRefused() tea.Msg { return blankDraftMsg{} }
 
 // UsageSeen hands the model an allowance reading without waiting on a service.
-func UsageSeen(spent translation.Usage) tea.Msg {
+func UsageSeen(spent promptflow.Usage) tea.Msg {
 	return usageMsg{spent: spent, reported: true}
 }
 

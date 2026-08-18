@@ -8,7 +8,6 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/wazum/herdr-polyglot/internal/promptflow"
-	"github.com/wazum/herdr-polyglot/internal/translation"
 	"github.com/wazum/herdr-polyglot/internal/vimarea"
 )
 
@@ -189,7 +188,7 @@ func spread(left, right string, line int) string {
 }
 
 // Short enough for a header: 12.3k/1M.
-func spentAsWords(spent translation.Usage) string {
+func spentAsWords(spent promptflow.Usage) string {
 	return compactCount(spent.Used) + "/" + compactCount(spent.Limit)
 }
 

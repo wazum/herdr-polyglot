@@ -14,7 +14,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/wazum/herdr-polyglot/internal/promptflow"
-	"github.com/wazum/herdr-polyglot/internal/translation"
 	"github.com/wazum/herdr-polyglot/internal/vimarea"
 )
 
@@ -24,7 +23,7 @@ type Prompter interface {
 	Submit(ctx context.Context, draft string, how promptflow.Delivery) (string, error)
 	Translate(ctx context.Context, draft string) (string, error)
 	Deliver(ctx context.Context, text string, how promptflow.Delivery) error
-	Usage(ctx context.Context) (translation.Usage, bool, error)
+	Usage(ctx context.Context) (promptflow.Usage, bool, error)
 }
 
 type Options struct {
@@ -151,7 +150,7 @@ type Model struct {
 	heldBackLive bool
 	// delivered says the agent has the prompt, so there is nothing left to keep.
 	delivered       bool
-	spent           translation.Usage
+	spent           promptflow.Usage
 	spentKnown      bool
 	beat            int
 	pulsing         bool
@@ -228,7 +227,7 @@ type (
 	}
 
 	usageMsg struct {
-		spent    translation.Usage
+		spent    promptflow.Usage
 		reported bool
 	}
 )
