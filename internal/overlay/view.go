@@ -32,48 +32,46 @@ var (
 )
 
 func (m Model) View() string {
-	content := lipgloss.JoinVertical(
+	draft := draftBoxStyle.Width(m.width).Render(m.draft.View())
+	line := lipgloss.Width(draft)
+
+	return boxStyle.Render(lipgloss.JoinVertical(
 		lipgloss.Left,
-		m.header(),
-		draftBoxStyle.Width(m.width+2).Render(m.draft.View()),
-		m.footer(),
-	)
-	return boxStyle.Render(content)
+		m.header(line),
+		draft,
+		m.footer(line),
+	))
 }
 
-func (m Model) header() string {
-	title := titleStyle.Render("✳ polyglot")
-
+func (m Model) header(line int) string {
 	destination := "send"
 	if m.options.Review {
 		destination = "review"
 	}
-	badge := badgeStyle.Render(strings.Join([]string{
-		m.options.Service,
-		"→",
-		m.options.Language,
-		"·",
-		destination,
-	}, " "))
+	badge := badgeStyle.Render(strings.Join(
+		[]string{m.options.Service, "→", m.options.Language, "·", destination}, " ",
+	))
 
-	return m.spread(title, badge)
+	return spread(titleStyle.Render("✳ polyglot"), badge, line)
 }
 
-func (m Model) footer() string {
-	if m.failure != nil {
-		return m.spread(dangerStyle.Render("✗ "+m.failure.Error()), hintStyle.Render("esc close"))
+func (m Model) footer(line int) string {
+	switch {
+	case m.failure != nil:
+		return spread(dangerStyle.Render("✗ "+m.failure.Error()), hintStyle.Render("esc close"), line)
+	case m.stage == translating:
+		return m.spinner.View() + accentStyle.Render(" translating …")
+	default:
+		return keyHints()
 	}
-	if m.stage == translating {
-		return m.spread(m.spinner.View()+accentStyle.Render(" translating …"), "")
-	}
-	return m.spread(m.keyHints(), "")
 }
 
-func (m Model) keyHints() string {
-	hints := []string{}
+func keyHints() string {
+	hints := make([]string, 0, 4)
 	for _, hint := range [][2]string{
-		{"enter", "send"},
-		{"alt+enter", "newline"},
+		{"ctrl+d", "send"},
+		{"alt+enter", "send"},
+		{"enter", "newline"},
 		{"esc", "cancel"},
 	} {
 		hints = append(hints, keyStyle.Render(hint[0])+hintStyle.Render(" "+hint[1]))
@@ -81,11 +79,11 @@ func (m Model) keyHints() string {
 	return strings.Join(hints, hintStyle.Render(" · "))
 }
 
-func (m Model) spread(left, right string) string {
-	total := m.width + 2
-	gap := total - lipgloss.Width(left) - lipgloss.Width(right)
+// spread pins left to the start of the line and right to its end.
+func spread(left, right string, line int) string {
+	gap := line - lipgloss.Width(left) - lipgloss.Width(right)
 	if gap < 1 {
-		return lipgloss.NewStyle().Width(total).Render(left)
+		return left
 	}
 	return left + strings.Repeat(" ", gap) + right
 }

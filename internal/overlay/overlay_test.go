@@ -65,7 +65,7 @@ func TestSubmittingADraftInsertsTheEnglishTranslationIntoTheTarget(t *testing.T)
 
 	overlayUnderTest := newOverlay(t, stubTranslator{english: english}, target)
 	overlayUnderTest.Type(draft)
-	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyEnter})
+	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyCtrlD})
 	overlayUnderTest.WaitFinished(t, teatest.WithFinalTimeout(2*time.Second))
 
 	if len(target.inserted) != 1 || target.inserted[0] != english {
@@ -93,7 +93,7 @@ func TestAFailedTranslationKeepsTheOverlayOpenAndReportsWhy(t *testing.T) {
 
 	overlayUnderTest := newOverlay(t, stubTranslator{err: errors.New("deepl unreachable")}, target)
 	overlayUnderTest.Type(draft)
-	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyEnter})
+	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyCtrlD})
 
 	teatest.WaitFor(t, overlayUnderTest.Output(), func(out []byte) bool {
 		return bytes.Contains(out, []byte("deepl unreachable"))
@@ -109,11 +109,46 @@ func TestABlankDraftIsNotSentAnywhere(t *testing.T) {
 	target := &recordingTarget{}
 
 	overlayUnderTest := newOverlay(t, translatorThatMustNotRun, target)
-	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyEnter})
+	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyCtrlD})
 	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyEsc})
 	overlayUnderTest.WaitFinished(t, teatest.WithFinalTimeout(2*time.Second))
 
 	if len(target.inserted) != 0 {
 		t.Errorf("target received %v, want nothing inserted", target.inserted)
+	}
+}
+
+func TestEnterAddsALineInsteadOfSending(t *testing.T) {
+	t.Parallel()
+	target := &recordingTarget{}
+
+	overlayUnderTest := newOverlay(t, stubTranslator{english: english}, target)
+	overlayUnderTest.Type("erste Zeile")
+	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyEnter})
+	overlayUnderTest.Type("zweite Zeile")
+
+	teatest.WaitFor(t, overlayUnderTest.Output(), func(out []byte) bool {
+		return bytes.Contains(out, []byte("erste Zeile")) && bytes.Contains(out, []byte("zweite Zeile"))
+	}, teatest.WithDuration(2*time.Second))
+
+	if len(target.inserted) != 0 {
+		t.Errorf("target received %v, want nothing sent by enter alone", target.inserted)
+	}
+
+	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyEsc})
+	overlayUnderTest.WaitFinished(t, teatest.WithFinalTimeout(2*time.Second))
+}
+
+func TestAltEnterAlsoSends(t *testing.T) {
+	t.Parallel()
+	target := &recordingTarget{}
+
+	overlayUnderTest := newOverlay(t, stubTranslator{english: english}, target)
+	overlayUnderTest.Type(draft)
+	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyEnter, Alt: true})
+	overlayUnderTest.WaitFinished(t, teatest.WithFinalTimeout(2*time.Second))
+
+	if len(target.inserted) != 1 || target.inserted[0] != english {
+		t.Errorf("target received %v, want one insert of %q", target.inserted, english)
 	}
 }

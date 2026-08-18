@@ -54,6 +54,7 @@ func New(ctx context.Context, submitter Submitter, options Options) Model {
 	draft := textarea.New()
 	draft.Placeholder = "Write your prompt in your own language …"
 	draft.ShowLineNumbers = false
+	draft.Prompt = ""
 	draft.SetHeight(draftHeight)
 	draft.FocusedStyle.CursorLine = lipgloss.NewStyle()
 	draft.Focus()
@@ -124,14 +125,12 @@ func (m *Model) resize(contentWidth int) {
 }
 
 func (m Model) handleKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
-	switch key.Type {
-	case tea.KeyEsc, tea.KeyCtrlC:
+	switch {
+	case key.Type == tea.KeyEsc, key.Type == tea.KeyCtrlC:
 		return m, tea.Quit
 
-	case tea.KeyEnter:
-		if key.Alt {
-			break
-		}
+	// Sending is deliberate; a bare enter belongs to the draft.
+	case key.Type == tea.KeyCtrlD, key.Type == tea.KeyEnter && key.Alt:
 		if m.stage == translating {
 			return m, nil
 		}
