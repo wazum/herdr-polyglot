@@ -25,8 +25,8 @@ tool.
 ╰──────────────────────────────────────────────╯
 ```
 
-Sending is deliberate: `ctrl+d` (or `alt+enter`) translates and delivers, while
-`enter` stays what it should be inside a text box — a new line.
+Sending is deliberate: `ctrl+d` translates and delivers, while `enter` stays what
+it should be inside a text box — a new line.
 
 ## Install
 
@@ -93,17 +93,15 @@ description = "write a prompt, review before sending"
 `prompt` sends the translated prompt straight to the agent. `compose` types it
 into the agent's input and leaves the final keystroke to you.
 
-`t` as in translate, because herdr already uses `prefix+p` for the previous tab
-and `prefix+shift+p` for renaming a pane. Free letters are few: `a`, `d`, `f`,
-`i`, `m`, `t`, `u` and `y`. If you would rather have `p`, move herdr's
-`previous_tab` elsewhere in the same file, or bind a modifier chord such as
-`alt+p` that needs no prefix at all.
+`t` as in translate: herdr already uses `prefix+p` for the previous tab and
+`prefix+shift+p` for renaming a pane. Free letters are `a`, `d`, `f`, `i`, `m`,
+`t`, `u` and `y` — if you want `p`, move herdr's `previous_tab` first.
 
 ## In the popup
 
 | | |
 | --- | --- |
-| `ctrl+d` | translate and send (`alt+enter` does the same) |
+| `ctrl+d` | translate and send |
 | `enter` | a new line, because a prompt is often more than one |
 | `esc` | close, or leave insert mode when vim bindings are on |
 | `q` | close, from normal mode |
