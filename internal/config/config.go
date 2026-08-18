@@ -27,6 +27,7 @@ const (
 	confirmVar   = "HERDR_POLYGLOT_CONFIRM"
 	maxDraftVar  = "HERDR_POLYGLOT_MAX_DRAFT"
 	pulseVar     = "HERDR_POLYGLOT_PULSE"
+	logoVar      = "HERDR_POLYGLOT_LOGO"
 	stateDirVar  = "HERDR_PLUGIN_STATE_DIR"
 	configDirVar = "HERDR_PLUGIN_CONFIG_DIR"
 	binaryVar    = "HERDR_BIN_PATH"
@@ -51,6 +52,7 @@ type Settings struct {
 	KeepDraft   bool
 	Confirm     bool
 	Pulse       bool
+	Logo        bool
 	MaxDraft    int
 }
 
@@ -92,6 +94,7 @@ func Load(getenv func(string) string) (Settings, error) {
 		KeepDraft:   given.flag(keepDraftVar, true),
 		Confirm:     given.flag(confirmVar, false),
 		Pulse:       given.flag(pulseVar, true),
+		Logo:        given.flag(logoVar, true),
 		MaxDraft:    given.number(maxDraftVar),
 		Options: translation.Options{
 			APIKey:         orDefault(lookup(scopedKeyVar(provider)), lookup(apiKeyVar)),

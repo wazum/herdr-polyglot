@@ -28,7 +28,10 @@ type styles struct {
 	mode        lipgloss.Style
 	// off is for a setting that is not in force: struck through and otherwise in
 	// the same colour as the rest, so it reads as switched off, not as faded out.
-	off        lipgloss.Style
+	off lipgloss.Style
+	// mark is the braille signature: the colour of the frame, since it is drawn
+	// furniture rather than something to read. Faint is too dim for braille dots.
+	mark       lipgloss.Style
 	draftBox   lipgloss.Style
 	englishBox lipgloss.Style
 }
@@ -50,6 +53,7 @@ func newStyles() styles {
 		bright:      lipgloss.NewStyle().Foreground(bright).Bold(true),
 		mode:        lipgloss.NewStyle().Foreground(accent).Bold(true),
 		off:         lipgloss.NewStyle().Strikethrough(true),
+		mark:        lipgloss.NewStyle().Foreground(frame),
 
 		draftBox: lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).

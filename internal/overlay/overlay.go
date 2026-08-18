@@ -42,6 +42,8 @@ type Options struct {
 	MaxDraft int
 	// Pulse fills and empties a circle beside "live" while a translation runs.
 	Pulse bool
+	// Logo signs the empty draft box with the plugin's braille mark.
+	Logo bool
 	// NoticeLinger is how long a message stays before it goes by itself.
 	NoticeLinger time.Duration
 	// Drafts keeps an unfinished prompt between sessions. Without one the draft

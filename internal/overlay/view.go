@@ -12,7 +12,7 @@ import (
 )
 
 func (m Model) View() string {
-	draft := m.styles.draftBox.Width(m.width).Render(m.draft.View())
+	draft := m.styles.draftBox.Width(m.width).Render(m.draftBody())
 	line := lipgloss.Width(draft)
 
 	parts := []string{m.header(line), draft}
@@ -24,6 +24,16 @@ func (m Model) View() string {
 	// Herdr already draws a frame around the popup; a second one inside it only
 	// takes room from the draft.
 	return strings.Join(parts, "\n")
+}
+
+// The mark is only ever drawn over space nobody is using, so it goes as soon as
+// there is a draft to read.
+func (m Model) draftBody() string {
+	body := m.draft.View()
+	if !m.options.Logo || m.draft.Value() != "" {
+		return body
+	}
+	return m.sign(body)
 }
 
 func (m Model) englishPane() string {

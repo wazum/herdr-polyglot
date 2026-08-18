@@ -108,6 +108,7 @@ func run(ctx context.Context) error {
 			Live:     settings.Live,
 			Confirm:  settings.Confirm,
 			Pulse:    settings.Pulse,
+			Logo:     settings.Logo,
 			MaxDraft: settings.MaxDraft,
 
 			Drafts: drafts(settings.KeepDraft, settings.StateDir, settings.Target),

@@ -97,6 +97,7 @@ off (`0`, `false`, `no`, `off`) is refused rather than guessed at.
 | `HERDR_POLYGLOT_KEEP_DRAFT` | `1` | `0` starts from an empty box instead of resuming |
 | `HERDR_POLYGLOT_MAX_DRAFT` | `2000` | Characters before the box says the draft is too long |
 | `HERDR_POLYGLOT_PULSE` | `1` | `0` stops the live circle from breathing |
+| `HERDR_POLYGLOT_LOGO` | `1` | `0` leaves the empty draft box unsigned |
 
 With `HERDR_POLYGLOT_PROVIDER=dry-run` the overlay marks the draft instead of
 translating it, so you can check the wiring without a key. To keep keys for

@@ -7,6 +7,12 @@ the versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- The plugin signs the empty draft box with a small braille mark, in the corner
+  furthest from the writing. It goes as soon as there is anything in the box, and
+  `HERDR_POLYGLOT_LOGO=0` leaves the box bare.
+
 ### Changed
 
 - Code is no longer translated. Backticked spans and fenced blocks are taken out
