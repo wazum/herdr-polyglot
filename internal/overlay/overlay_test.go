@@ -731,7 +731,7 @@ func TestARestoredDraftSaysThatItWasResumed(t *testing.T) {
 	// Text that reappears without explanation is a surprise, so say where it
 	// came from until the author touches it.
 	teatest.WaitFor(t, overlayUnderTest.Output(), func(out []byte) bool {
-		return bytes.Contains(out, []byte("resumed"))
+		return bytes.Contains(out, []byte("resumed draft"))
 	}, teatest.WithDuration(2*time.Second))
 
 	overlayUnderTest.Type("!")
@@ -867,7 +867,7 @@ func TestTheHeaderShowsWhatTheKeyHasSpent(t *testing.T) {
 
 	// Compact, because the header is narrow: 12.3k of 1M.
 	teatest.WaitFor(t, overlayUnderTest.Output(), func(out []byte) bool {
-		return bytes.Contains(out, []byte("12.3k/1M"))
+		return bytes.Contains(out, []byte("used 12.3k/1M"))
 	}, teatest.WithDuration(3*time.Second))
 
 	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyCtrlC})

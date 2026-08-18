@@ -52,21 +52,23 @@ func (m Model) header() string {
 func (m Model) badge() string {
 	pieces := []string{m.styles.badge.Render(m.options.Service + " → " + m.options.Language)}
 
-	if m.options.Live {
-		if m.options.Pulse {
-			pieces = append(pieces,
-				m.styles.badge.Render("·"), m.pulseGlyph(), m.styles.badge.Render("live"))
-		} else {
-			pieces = append(pieces, m.styles.badge.Render("· live"))
-		}
+	switch {
+	case m.options.Live && m.options.Pulse:
+		pieces = append(pieces,
+			m.styles.badge.Render("·"), m.pulseGlyph(), m.styles.badge.Render("live"))
+	case m.options.Live:
+		pieces = append(pieces, m.styles.badge.Render("· live"))
+	default:
+		// Saying so is worth a word: ctrl+l is what turns it on.
+		pieces = append(pieces, m.styles.badge.Render("· live off"))
 	}
 
 	pieces = append(pieces, m.styles.badge.Render("· "+m.whatHappens()))
 	if m.resumed {
-		pieces = append(pieces, m.styles.badge.Render("· resumed"))
+		pieces = append(pieces, m.styles.badge.Render("· resumed draft"))
 	}
 	if m.spentKnown {
-		pieces = append(pieces, m.styles.badge.Render("· "+spentAsWords(m.spent)))
+		pieces = append(pieces, m.styles.badge.Render("· used "+spentAsWords(m.spent)))
 	}
 	return strings.Join(pieces, m.styles.badge.Render(" "))
 }
@@ -94,31 +96,33 @@ func (m Model) otherDestination() string {
 	return "fill"
 }
 
+// The mode sits at the end of the line, next to the key that changes it.
 func (m Model) footer(line int) string {
 	mode := ""
 	if m.draft.Modal() {
-		mode = m.styles.mode.Render(m.draft.Mode().String()) + " "
+		mode = m.styles.mode.Render(m.draft.Mode().String())
 	}
 
+	// One column in, like the heading.
 	switch {
 	case m.failure != nil:
-		return spread(mode+m.styles.danger.Render("✗ "+m.failure.Error()),
+		return spread(" "+m.styles.danger.Render("✗ "+m.failure.Error()),
 			m.styles.hint.Render("ctrl+c close"), line)
 	case m.draftIsTooLong():
 		return spread(
-			mode+m.styles.danger.Render(fmt.Sprintf("⚠ %d characters", len([]rune(m.draft.Value()))))+
+			" "+m.styles.danger.Render(fmt.Sprintf("⚠ %d characters", len([]rune(m.draft.Value()))))+
 				m.styles.hint.Render(" — this box is for prompts you write, not files you paste"),
 			m.styles.hint.Render("ctrl+u discard"), line)
 	case m.stage == confirming:
 		return spread(
-			m.styles.key.Render("ctrl+d")+m.styles.hint.Render(" send this")+
+			" "+m.styles.key.Render("ctrl+d")+m.styles.hint.Render(" send this")+
 				m.styles.hint.Render(" · ")+m.styles.key.Render("esc")+
 				m.styles.hint.Render(" keep writing"),
 			m.styles.badge.Render("read it first"), line)
 	case m.stage == translating:
-		return spread(mode+m.spinner.View()+m.styles.accent.Render(" translating …"), "", line)
+		return spread(" "+m.spinner.View()+m.styles.accent.Render(" translating …"), mode, line)
 	default:
-		return spread(mode+" "+m.keyHints(), "", line)
+		return spread(" "+m.keyHints(), mode, line)
 	}
 }
 
@@ -130,16 +134,16 @@ func (m Model) keyHints() string {
 		{"ctrl+d", m.destination()},
 		{"ctrl+r", "→ " + m.otherDestination()},
 		{"ctrl+l", "live"},
-		{"ctrl+u", "clear"},
 	}
 
+	// An arrow reads as "takes you to", which a bare mode name does not.
 	switch {
 	case m.draft.Modal() && m.draft.Mode() == vimarea.Normal:
-		shown = append(shown, [2]string{"i", "insert"}, [2]string{"q", "close"})
+		shown = append(shown, [2]string{"i", "→ insert"}, [2]string{"q", "close"})
 	case m.draft.Modal():
-		shown = append(shown, [2]string{"esc", "normal"})
+		shown = append(shown, [2]string{"ctrl+u", "clear"}, [2]string{"esc", "→ normal"})
 	default:
-		shown = append(shown, [2]string{"esc", "close"})
+		shown = append(shown, [2]string{"ctrl+u", "clear"}, [2]string{"esc", "close"})
 	}
 
 	hints := make([]string, 0, len(shown))

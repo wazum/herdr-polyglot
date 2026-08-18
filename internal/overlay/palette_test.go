@@ -121,8 +121,15 @@ func TestTheFooterListsEveryKeyAndStillFits(t *testing.T) {
 				model, _ = model.Update(tea.KeyMsg{Type: tea.KeyEsc})
 			}
 
+			// Normal mode has vim's own way to clear a line, so ctrl+u steps aside
+			// there to leave room for i and q.
+			expected := []string{"ctrl+d", "ctrl+r", "ctrl+l", "ctrl+u"}
+			if vim && normalMode {
+				expected = []string{"ctrl+d", "ctrl+r", "ctrl+l", "i ", "q "}
+			}
+
 			footer := lastLine(model.View())
-			for _, key := range []string{"ctrl+d", "ctrl+r", "ctrl+l", "ctrl+u"} {
+			for _, key := range expected {
 				if !strings.Contains(footer, key) {
 					t.Errorf("vim=%v normal=%v: the footer does not mention %s: %q",
 						vim, normalMode, key, footer)
