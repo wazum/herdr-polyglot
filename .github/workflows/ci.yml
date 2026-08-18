@@ -107,7 +107,15 @@ jobs:
       # user building from source is exposed to.
       - run: go run golang.org/x/vuln/cmd/govulncheck@${{ env.GOVULNCHECK_VERSION }} ./...
 
-  # Every install runs this script, so it is checked and then run.
+  # Shellcheck comes with the ubuntu runners only.
+  shell:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: shellcheck herdr/*.sh
+
+  # Every install runs this script, on both systems the plugin supports.
   install:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 10
@@ -121,8 +129,6 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
-      - name: Lint shell scripts
-        run: shellcheck herdr/*.sh
       - name: Install the plugin the way herdr does
         run: bash herdr/install.sh
       - name: The binary it produced runs
