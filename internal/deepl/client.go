@@ -11,6 +11,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/wazum/herdr-polyglot/internal/translation"
 )
 
 const (
@@ -149,6 +151,42 @@ func (c *Client) TranslateWithContext(ctx context.Context, draft, surrounding st
 		return "", errors.New("DeepL returned no translation")
 	}
 	return decoded.Translations[0].Text, nil
+}
+
+// The characters this call costs are not counted against the allowance.
+func (c *Client) Usage(ctx context.Context) (translation.Usage, error) {
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, c.usageEndpoint(), http.NoBody)
+	if err != nil {
+		return translation.Usage{}, fmt.Errorf("building usage request: %w", err)
+	}
+	request.Header.Set("Authorization", "DeepL-Auth-Key "+c.apiKey)
+
+	response, err := c.httpClient.Do(request)
+	if err != nil {
+		return translation.Usage{}, fmt.Errorf("asking DeepL about usage: %w", err)
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		return translation.Usage{}, fmt.Errorf("DeepL rejected the usage request: %s: %s",
+			response.Status, explanation(response.Body))
+	}
+
+	var decoded struct {
+		Count int64 `json:"character_count"`
+		Limit int64 `json:"character_limit"`
+	}
+	if err := json.NewDecoder(io.LimitReader(response.Body, maxResponseBytes)).Decode(&decoded); err != nil {
+		return translation.Usage{}, fmt.Errorf("decoding usage: %w", err)
+	}
+	return translation.Usage{Used: decoded.Count, Limit: decoded.Limit}, nil
+}
+
+func (c *Client) usageEndpoint() string {
+	if trimmed, found := strings.CutSuffix(c.endpoint, "/translate"); found {
+		return trimmed + "/usage"
+	}
+	return c.endpoint + "/usage"
 }
 
 func explanation(body io.Reader) string {

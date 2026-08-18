@@ -14,6 +14,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/wazum/herdr-polyglot/internal/promptflow"
+	"github.com/wazum/herdr-polyglot/internal/translation"
 	"github.com/wazum/herdr-polyglot/internal/vimarea"
 )
 
@@ -23,6 +24,7 @@ type Prompter interface {
 	Submit(ctx context.Context, draft string) (string, error)
 	Translate(ctx context.Context, draft string) (string, error)
 	Deliver(ctx context.Context, text string) error
+	Usage(ctx context.Context) (translation.Usage, bool, error)
 }
 
 type Options struct {
@@ -110,7 +112,9 @@ type Model struct {
 	cancelPreview context.CancelFunc
 	// resumed says the draft on screen was written in an earlier session, which
 	// is worth saying until the author takes it over.
-	resumed bool
+	resumed    bool
+	spent      translation.Usage
+	spentKnown bool
 }
 
 func New(ctx context.Context, prompter Prompter, options Options) Model {
@@ -160,10 +164,28 @@ type (
 		text string
 		err  error
 	}
+
+	usageMsg struct {
+		spent    translation.Usage
+		reported bool
+	}
 )
 
 func (m Model) Init() tea.Cmd {
-	return textarea.Blink
+	// The allowance is asked for after the box is already on screen, so nothing
+	// waits for the network.
+	return tea.Batch(textarea.Blink, m.askUsage())
+}
+
+func (m Model) askUsage() tea.Cmd {
+	return func() tea.Msg {
+		spent, reported, err := m.prompter.Usage(m.ctx)
+		if err != nil {
+			// A service that will not say is simply not shown.
+			return usageMsg{}
+		}
+		return usageMsg{spent: spent, reported: reported}
+	}
 }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -174,6 +196,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.KeyMsg:
 		return m.handleKey(msg)
+
+	case usageMsg:
+		m.spent, m.spentKnown = msg.spent, msg.reported && msg.spent.Limit > 0
+		return m, nil
 
 	case promptSentMsg:
 		m.forgetDraft()

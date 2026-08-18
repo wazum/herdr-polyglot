@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/wazum/herdr-polyglot/internal/promptflow"
+	"github.com/wazum/herdr-polyglot/internal/translation"
 )
 
 type stubTranslator struct {
@@ -204,5 +205,41 @@ func TestTranslateStripsControlCharactersButKeepsLineBreaks(t *testing.T) {
 	}
 	if !strings.Contains(translated, "fix it") || !strings.Contains(translated, "second line") {
 		t.Errorf("Translate returned %q, want the readable text kept", translated)
+	}
+}
+
+type reportingTranslator struct {
+	stubTranslator
+	spent translation.Usage
+}
+
+func (r *reportingTranslator) Usage(context.Context) (translation.Usage, error) {
+	return r.spent, nil
+}
+
+func TestUsageComesFromTheServiceWhenItKeepsCount(t *testing.T) {
+	translator := &reportingTranslator{spent: translation.Usage{Used: 1234, Limit: 500000}}
+
+	spent, reported, err := promptflow.New(translator, &recordingTarget{}).
+		Usage(context.Background())
+	if err != nil {
+		t.Fatalf("Usage returned unexpected error: %v", err)
+	}
+	if !reported {
+		t.Fatal("Usage says the service keeps no count, want it reported")
+	}
+	if spent.Used != 1234 || spent.Limit != 500000 {
+		t.Errorf("Usage returned %+v, want 1234 of 500000", spent)
+	}
+}
+
+func TestAServiceThatKeepsNoCountSaysSo(t *testing.T) {
+	_, reported, err := promptflow.New(&stubTranslator{}, &recordingTarget{}).
+		Usage(context.Background())
+	if err != nil {
+		t.Fatalf("Usage returned unexpected error: %v", err)
+	}
+	if reported {
+		t.Error("Usage claims a count, want it to say the service keeps none")
 	}
 }

@@ -14,6 +14,7 @@ import (
 
 	"github.com/wazum/herdr-polyglot/internal/overlay"
 	"github.com/wazum/herdr-polyglot/internal/promptflow"
+	"github.com/wazum/herdr-polyglot/internal/translation"
 )
 
 const (
@@ -842,5 +843,51 @@ func TestWithoutConfirmationSendingStaysOneKey(t *testing.T) {
 
 	if len(target.inserted) != 1 {
 		t.Errorf("target received %v, want it delivered on the first key", target.inserted)
+	}
+}
+
+type spendingTranslator struct {
+	stubTranslator
+	spent translation.Usage
+}
+
+func (s spendingTranslator) Usage(context.Context) (translation.Usage, error) {
+	return s.spent, nil
+}
+
+func TestTheHeaderShowsWhatTheKeyHasSpent(t *testing.T) {
+	t.Parallel()
+	translator := spendingTranslator{
+		stubTranslator: stubTranslator{english: english},
+		spent:          translation.Usage{Used: 12345, Limit: 1_000_000},
+	}
+
+	overlayUnderTest := newOverlay(t, translator, &recordingTarget{})
+
+	// Compact, because the header is narrow: 12.3k of 1M.
+	teatest.WaitFor(t, overlayUnderTest.Output(), func(out []byte) bool {
+		return bytes.Contains(out, []byte("12.3k/1M"))
+	}, teatest.WithDuration(3*time.Second))
+
+	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyCtrlC})
+	overlayUnderTest.WaitFinished(t, teatest.WithFinalTimeout(2*time.Second))
+}
+
+func TestAServiceWithoutAnAllowanceShowsNoCount(t *testing.T) {
+	t.Parallel()
+
+	overlayUnderTest := newOverlay(t, stubTranslator{english: english}, &recordingTarget{})
+	overlayUnderTest.Type("Bitte behebe")
+	time.Sleep(300 * time.Millisecond)
+
+	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyCtrlC})
+	overlayUnderTest.WaitFinished(t, teatest.WithFinalTimeout(2*time.Second))
+
+	shown, err := io.ReadAll(overlayUnderTest.Output())
+	if err != nil {
+		t.Fatalf("reading output: %v", err)
+	}
+	if bytes.Contains(shown, []byte("/1M")) || bytes.Contains(shown, []byte("0/0")) {
+		t.Error("the header shows an allowance the service never reported")
 	}
 }

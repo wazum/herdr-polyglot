@@ -1,10 +1,12 @@
 package overlay
 
 import (
+	"strconv"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
 
+	"github.com/wazum/herdr-polyglot/internal/translation"
 	"github.com/wazum/herdr-polyglot/internal/vimarea"
 )
 
@@ -85,6 +87,9 @@ func (m Model) header(line int) string {
 	if m.resumed {
 		parts = append(parts, "·", "resumed")
 	}
+	if m.spentKnown {
+		parts = append(parts, "·", spentAsWords(m.spent))
+	}
 	badge := badgeStyle.Render(strings.Join(parts, " "))
 
 	return spread(titleStyle.Render("✳ polyglot"), badge, line)
@@ -137,4 +142,25 @@ func spread(left, right string, line int) string {
 		return left
 	}
 	return left + strings.Repeat(" ", gap) + right
+}
+
+// Short enough for a header: 12.3k/1M.
+func spentAsWords(spent translation.Usage) string {
+	return compactCount(spent.Used) + "/" + compactCount(spent.Limit)
+}
+
+func compactCount(count int64) string {
+	switch {
+	case count >= 1_000_000:
+		return trimZero(float64(count)/1_000_000) + "M"
+	case count >= 1_000:
+		return trimZero(float64(count)/1_000) + "k"
+	default:
+		return strconv.FormatInt(count, 10)
+	}
+}
+
+func trimZero(value float64) string {
+	rendered := strconv.FormatFloat(value, 'f', 1, 64)
+	return strings.TrimSuffix(rendered, ".0")
 }

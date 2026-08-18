@@ -228,3 +228,26 @@ func TestADraftTooLongToTranslateIsRefusedBeforeItIsSent(t *testing.T) {
 		t.Error("the oversized draft was sent anyway")
 	}
 }
+
+func TestUsageReportsWhatTheKeyHasSpent(t *testing.T) {
+	t.Parallel()
+	var asked string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		asked = r.URL.Path
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{"character_count":12345,"character_limit":1000000}`)
+	}))
+	t.Cleanup(server.Close)
+
+	spent, err := deepl.New("key-123", deepl.WithEndpoint(server.URL+"/v2/translate")).
+		Usage(context.Background())
+	if err != nil {
+		t.Fatalf("Usage returned unexpected error: %v", err)
+	}
+	if spent.Used != 12345 || spent.Limit != 1000000 {
+		t.Errorf("Usage returned %+v, want 12345 of 1000000", spent)
+	}
+	if asked != "/v2/usage" {
+		t.Errorf("Usage asked %q, want the usage endpoint beside the translate one", asked)
+	}
+}

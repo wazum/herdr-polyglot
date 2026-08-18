@@ -20,3 +20,13 @@ type Provider interface {
 	Name() string
 	New(Options) (Translator, error)
 }
+
+type Usage struct {
+	Used  int64
+	Limit int64
+}
+
+// Not every service keeps count, so this is asked for rather than required.
+type UsageReporter interface {
+	Usage(ctx context.Context) (Usage, error)
+}

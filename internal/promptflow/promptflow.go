@@ -6,6 +6,8 @@ import (
 	"context"
 	"errors"
 	"strings"
+
+	"github.com/wazum/herdr-polyglot/internal/translation"
 )
 
 var ErrBlankDraft = errors.New("draft is blank")
@@ -47,6 +49,20 @@ func (f *Flow) Translate(ctx context.Context, draft string) (string, error) {
 		return "", err
 	}
 	return readable(translated), nil
+}
+
+// The second result says whether the service keeps count at all.
+func (f *Flow) Usage(ctx context.Context) (translation.Usage, bool, error) {
+	reporter, keepsCount := f.translator.(translation.UsageReporter)
+	if !keepsCount {
+		return translation.Usage{}, false, nil
+	}
+
+	spent, err := reporter.Usage(ctx)
+	if err != nil {
+		return translation.Usage{}, true, err
+	}
+	return spent, true, nil
 }
 
 // Deliver hands over text that has already been translated, so a prompt the
