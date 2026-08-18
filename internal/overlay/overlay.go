@@ -387,7 +387,7 @@ func (m Model) showsEnglish() bool {
 	if m.pane.Height <= 0 {
 		return true
 	}
-	return m.pane.Height-headerRows-footerRows-draftFrame-englishRows >= 1
+	return m.pane.Height-headerRows-footerRows-draftFrame-englishRows >= minDraftRows
 }
 
 func (m Model) handleKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {

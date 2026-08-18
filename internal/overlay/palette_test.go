@@ -57,6 +57,25 @@ func TestThePopupIsTallEnoughToLeaveTheDraftItsFullHeight(t *testing.T) {
 	}
 }
 
+// A popup can end up shorter than asked for. One line is not a box to write a
+// prompt in, so the translation steps aside before the draft is squeezed.
+func TestAShortPopupGivesTheDraftTheRoomFirst(t *testing.T) {
+	flow := promptflow.New(stubTranslator{english: english}, &recordingTarget{}, &recordingTarget{})
+	var model tea.Model = overlay.New(context.Background(), flow, overlay.Options{
+		Service: "deepl", Language: "EN-US", Live: true,
+	})
+	model, _ = model.Update(tea.WindowSizeMsg{Width: 87, Height: 10})
+
+	rows := overlay.DraftRows(model.(overlay.Model))
+	if rows < overlay.MinDraftRows {
+		t.Errorf("the draft got %d rows in a pane of 10, want at least %d",
+			rows, overlay.MinDraftRows)
+	}
+	if boxes := strings.Count(model.View(), "╭"); boxes > 1 {
+		t.Errorf("the translation is still shown in a pane too short for both: %d boxes", boxes)
+	}
+}
+
 // Herdr paints the popup in whatever its theme says. A background of ours would
 // replace that colour cell by cell, so the overlay sets none.
 func TestTheOverlayNeverSetsABackground(t *testing.T) {
