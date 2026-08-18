@@ -1,5 +1,11 @@
 # polyglot
 
+[![CI](https://github.com/wazum/herdr-polyglot/actions/workflows/ci.yml/badge.svg)](https://github.com/wazum/herdr-polyglot/actions/workflows/ci.yml)
+[![Go Reference](https://pkg.go.dev/badge/github.com/wazum/herdr-polyglot.svg)](https://pkg.go.dev/github.com/wazum/herdr-polyglot)
+[![Go](https://img.shields.io/github/go-mod/go-version/wazum/herdr-polyglot)](go.mod)
+[![herdr](https://img.shields.io/badge/herdr-%E2%89%A5%200.8.0-6C3EF5)](https://herdr.dev)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 A [herdr](https://herdr.dev) plugin for people who think faster in their own
 language than in English. Press a key on any agent pane, an overlay opens above
 it, you write the prompt in your language, and the translated prompt lands in
