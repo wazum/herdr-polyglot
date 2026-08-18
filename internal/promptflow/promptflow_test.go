@@ -182,3 +182,27 @@ func TestTranslateIsNotMangledForReading(t *testing.T) {
 		t.Errorf("Translate returned %q, want the line break kept for reading", translated)
 	}
 }
+
+// A translation service does not get to decide what the terminal does, so its
+// answer is cleaned where it enters the program: the preview is drawn from it
+// and the agent is given it.
+func TestTranslateStripsControlCharactersButKeepsLineBreaks(t *testing.T) {
+	translator := &stubTranslator{english: "fix it\x1b]0;stolen title\x07 now\nsecond line\x00"}
+
+	translated, err := promptflow.New(translator, &recordingTarget{}).
+		Translate(context.Background(), "Behebe es")
+	if err != nil {
+		t.Fatalf("Translate returned unexpected error: %v", err)
+	}
+	for _, forbidden := range []string{"\x1b", "\x07", "\x00"} {
+		if strings.Contains(translated, forbidden) {
+			t.Errorf("Translate returned %q, which still carries %q", translated, forbidden)
+		}
+	}
+	if !strings.Contains(translated, "\n") {
+		t.Errorf("Translate returned %q, want the line break kept for reading", translated)
+	}
+	if !strings.Contains(translated, "fix it") || !strings.Contains(translated, "second line") {
+		t.Errorf("Translate returned %q, want the readable text kept", translated)
+	}
+}

@@ -42,7 +42,11 @@ func (f *Flow) Translate(ctx context.Context, draft string) (string, error) {
 	if strings.TrimSpace(draft) == "" {
 		return "", ErrBlankDraft
 	}
-	return f.translator.Translate(ctx, draft)
+	translated, err := f.translator.Translate(ctx, draft)
+	if err != nil {
+		return "", err
+	}
+	return readable(translated), nil
 }
 
 // Deliver hands over text that has already been translated, so a prompt the
