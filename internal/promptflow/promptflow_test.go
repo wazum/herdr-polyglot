@@ -3,6 +3,7 @@ package promptflow_test
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/wazum/herdr-polyglot/internal/promptflow"
@@ -122,5 +123,62 @@ func TestDeliverSendsAlreadyTranslatedTextWithoutTranslatingAgain(t *testing.T) 
 	}
 	if len(target.inserted) != 1 || target.inserted[0] != "Please fix the failing test" {
 		t.Errorf("target received %v, want the text delivered once", target.inserted)
+	}
+}
+
+func TestDeliverKeepsControlCharactersOutOfTheAgentsTerminal(t *testing.T) {
+	target := &recordingTarget{}
+
+	err := promptflow.New(&stubTranslator{}, target).Deliver(
+		context.Background(),
+		"fix the bug\x1b]0;title\x07 and \x1b[31mred\x00 now",
+	)
+	if err != nil {
+		t.Fatalf("Deliver returned unexpected error: %v", err)
+	}
+	if len(target.inserted) != 1 {
+		t.Fatalf("target received %v, want one delivery", target.inserted)
+	}
+	delivered := target.inserted[0]
+	for _, forbidden := range []string{"\x1b", "\x07", "\x00"} {
+		if strings.Contains(delivered, forbidden) {
+			t.Errorf("delivered %q, which still carries %q", delivered, forbidden)
+		}
+	}
+	if !strings.Contains(delivered, "fix the bug") || !strings.Contains(delivered, "red") {
+		t.Errorf("delivered %q, want the readable text kept", delivered)
+	}
+}
+
+func TestDeliverKeepsAMultiLinePromptOnOneLine(t *testing.T) {
+	target := &recordingTarget{}
+
+	err := promptflow.New(&stubTranslator{}, target).
+		Deliver(context.Background(), "first line\nsecond line\r\nthird")
+	if err != nil {
+		t.Fatalf("Deliver returned unexpected error: %v", err)
+	}
+	// A newline typed into an agent's input submits the prompt half written, so
+	// the lines have to arrive as one.
+	if delivered := target.inserted[0]; strings.ContainsAny(delivered, "\n\r") {
+		t.Errorf("delivered %q, want no line breaks", delivered)
+	}
+	if delivered := target.inserted[0]; delivered != "first line second line third" {
+		t.Errorf("delivered %q, want the lines joined by spaces", delivered)
+	}
+}
+
+func TestTranslateIsNotMangledForReading(t *testing.T) {
+	translator := &stubTranslator{english: "line one\nline two"}
+
+	// The preview is read by a person, so its shape is kept; only what goes to
+	// the agent is flattened.
+	translated, err := promptflow.New(translator, &recordingTarget{}).
+		Translate(context.Background(), "Zeile eins\nZeile zwei")
+	if err != nil {
+		t.Fatalf("Translate returned unexpected error: %v", err)
+	}
+	if translated != "line one\nline two" {
+		t.Errorf("Translate returned %q, want the line break kept for reading", translated)
 	}
 }

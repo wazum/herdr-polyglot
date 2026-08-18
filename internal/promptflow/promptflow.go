@@ -48,8 +48,9 @@ func (f *Flow) Translate(ctx context.Context, draft string) (string, error) {
 // Deliver hands over text that has already been translated, so a prompt the
 // author has seen is not translated a second time on its way out.
 func (f *Flow) Deliver(ctx context.Context, text string) error {
-	if strings.TrimSpace(text) == "" {
+	prompt := plainText(text)
+	if prompt == "" {
 		return ErrBlankDraft
 	}
-	return f.target.Insert(ctx, text)
+	return f.target.Insert(ctx, prompt)
 }
