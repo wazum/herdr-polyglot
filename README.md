@@ -109,10 +109,14 @@ header says which it will be.
 | `ctrl+r` | switch between `send` and `paste` — the header says which one is next |
 | `ctrl+l` | turn live translation on or off for this prompt |
 | `enter` | a new line, because a prompt is often more than one |
-| `esc` | close, or leave insert mode when vim bindings are on |
+| `esc` | close, or go to normal mode when vim bindings are on |
 | `q` | close, from normal mode |
 | `ctrl+u` | throw the draft away, as it clears a line in a shell |
 | `ctrl+c` | close, always |
+
+The header says what `ctrl+d` will do: `sends to agent` hands the prompt over and
+the agent starts working, `fills the input` only types it there and leaves the
+final keystroke to you.
 
 With vim bindings on, `esc` goes to normal mode, and from there `esc` closes only
 when the draft is empty — otherwise it stays put rather than throw away writing,
