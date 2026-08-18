@@ -80,14 +80,15 @@ const (
 	// draftFrame is the border around the draft. Its padding is not counted:
 	// lipgloss measures a width as including padding but not the border.
 	draftFrame = 2
+	headerRows = 1
+	footerRows = 1
 
 	// PopupWidth keeps the dialog to the width of a comfortable prompt; the
 	// dialog then fills the popup exactly, leaving no unused space.
 	PopupWidth = 90
 )
 
-// PopupHeight is how tall the popup must be for the dialog to fit without the
-// agent's output disappearing behind a pane larger than it needs to be.
+// A popup larger than this hides the agent's output for nothing.
 func PopupHeight(live bool) int {
 	height := dialogRows + PopupBorder
 	if live {
@@ -126,6 +127,9 @@ type Model struct {
 	spentKnown bool
 	beat       int
 	pulsing    bool
+	// Every cell of the pane is drawn, or the background herdr painted behind
+	// the popup shows through where the overlay stops.
+	pane tea.WindowSizeMsg
 }
 
 func New(ctx context.Context, prompter Prompter, options Options) Model {
@@ -205,6 +209,7 @@ func (m Model) askUsage() tea.Cmd {
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
+		m.pane = msg
 		m.resize(msg.Width - draftFrame)
 		return m, nil
 
@@ -282,6 +287,30 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m *Model) resize(contentWidth int) {
 	m.width = min(max(contentWidth, minContentWidth), maxContentWidth)
 	m.draft.SetWidth(m.width)
+	m.draft.SetHeight(m.draftRows())
+}
+
+func (m Model) draftRows() int {
+	if m.pane.Height <= 0 {
+		return draftHeight
+	}
+
+	rows := m.pane.Height - headerRows - footerRows - draftFrame
+	if m.showsEnglish() {
+		rows -= englishRows
+	}
+	return max(rows, 1)
+}
+
+// A pane too short for both boxes drops the translation rather than overflow.
+func (m Model) showsEnglish() bool {
+	if !m.options.Live && m.stage != confirming {
+		return false
+	}
+	if m.pane.Height <= 0 {
+		return true
+	}
+	return m.pane.Height-headerRows-footerRows-draftFrame-englishRows >= 1
 }
 
 func (m Model) handleKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {

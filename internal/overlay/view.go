@@ -31,6 +31,8 @@ var (
 	dangerStyle      = lipgloss.NewStyle().Foreground(danger)
 	modeStyle        = lipgloss.NewStyle().Foreground(accent).Bold(true)
 
+	paneStyle = lipgloss.NewStyle()
+
 	draftBoxStyle = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(frame).
@@ -48,17 +50,23 @@ func (m Model) View() string {
 	line := lipgloss.Width(draft)
 
 	parts := []string{m.header(line), draft}
-	if m.options.Live || m.stage == confirming {
+	if m.showsEnglish() {
 		parts = append(parts, m.englishPane())
 	}
 	parts = append(parts, m.footer(line))
 
-	// No box of our own: herdr already draws one around the popup, and a second
-	// frame inside it only takes room from the draft.
-	return lipgloss.JoinVertical(lipgloss.Left, parts...)
+	// Herdr already draws a frame around the popup; a second one inside it only
+	// takes room from the draft.
+	return m.fillPane(lipgloss.JoinVertical(lipgloss.Left, parts...))
 }
 
-// englishPane keeps the translation in view while the draft is written.
+func (m Model) fillPane(content string) string {
+	if m.pane.Width <= 0 || m.pane.Height <= 0 {
+		return content
+	}
+	return paneStyle.Width(m.pane.Width).Height(m.pane.Height).Render(content)
+}
+
 func (m Model) englishPane() string {
 	body := placeholderStyle.Render("…")
 	switch {
