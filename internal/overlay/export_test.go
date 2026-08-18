@@ -16,6 +16,9 @@ func PulseBeat(beat int) tea.Msg { return pulseMsg{beat: beat} }
 // BlankDraftRefused is the flow's answer when there is nothing to send.
 func BlankDraftRefused() tea.Msg { return blankDraftMsg{} }
 
+// PromptDelivered is the flow's answer when the agent has the prompt.
+func PromptDelivered() tea.Msg { return promptSentMsg{} }
+
 // UsageSeen hands the model an allowance reading without waiting on a service.
 func UsageSeen(spent translation.Usage) tea.Msg {
 	return usageMsg{spent: spent, reported: true}

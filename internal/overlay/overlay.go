@@ -578,6 +578,15 @@ func (m Model) close() (tea.Model, tea.Cmd) {
 	return m, tea.Quit
 }
 
+// KeepUnfinished stores the draft after the program ended, whichever way it
+// ended: a closed popup and ctrl+c both skip the close key.
+func (m Model) KeepUnfinished() error {
+	if m.options.Drafts == nil || m.delivered {
+		return nil
+	}
+	return m.options.Drafts.Save(m.draft.Value())
+}
+
 func (m Model) forgetDraft() {
 	if m.options.Drafts == nil {
 		return

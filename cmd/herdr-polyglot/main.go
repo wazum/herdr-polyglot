@@ -4,9 +4,11 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
+	"syscall"
 
 	tea "github.com/charmbracelet/bubbletea"
 
@@ -76,7 +78,9 @@ func run(ctx context.Context) error {
 		translator = translation.Segmented(translator)
 	}
 
-	ctx, stopListening := signal.NotifyContext(ctx, os.Interrupt)
+	// Herdr closes a popup by hanging up on it. Ending on the signal instead of
+	// dying on it is what lets the draft be kept below.
+	ctx, stopListening := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM, syscall.SIGHUP)
 	defer stopListening()
 
 	runner := herdr.NewExecRunner(settings.HerdrBinary)
@@ -102,7 +106,14 @@ func run(ctx context.Context) error {
 		// background, which then differs from the popup herdr painted around it.
 		// Drawing inline leaves every cell we do not write as herdr left it.
 	)
-	if _, err := program.Run(); err != nil {
+	final, err := program.Run()
+	if kept, ok := final.(overlay.Model); ok {
+		if err := kept.KeepUnfinished(); err != nil {
+			fmt.Fprintln(os.Stderr, "polyglot:", err)
+		}
+	}
+	// A closed popup ends the program this way; it is not a failure.
+	if err != nil && !errors.Is(err, tea.ErrProgramKilled) {
 		return fmt.Errorf("running overlay: %w", err)
 	}
 	return nil

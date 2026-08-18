@@ -124,10 +124,11 @@ and `q` closes.
 
 ## An unfinished prompt is kept
 
-Closing the popup does not lose the draft. It is written to the plugin's own
-state directory, one file per pane, readable only by you, and comes back the next
-time you open the popup there — the header says `resumed` until you type, and
-`ctrl+u` throws it away. A sent prompt is forgotten immediately.
+Closing the popup does not lose the draft, however it closes — `esc`, `q`,
+`ctrl+c`, or herdr taking the popup away. It is written to the plugin's own state
+directory, one file per pane, readable only by you, and comes back the next time
+you open the popup there — the header says `resumed` until you type, and `ctrl+u`
+throws it away. A sent prompt is forgotten immediately.
 
 Since a draft is unfinished thinking about your code, it sits on disk until sent
 or discarded. `HERDR_POLYGLOT_KEEP_DRAFT=0` turns that off and always starts from

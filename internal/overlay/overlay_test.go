@@ -721,6 +721,45 @@ func TestADraftThatCannotBeKeptIsNotSilentlyLost(t *testing.T) {
 	overlayUnderTest.WaitFinished(t, teatest.WithFinalTimeout(2*time.Second))
 }
 
+// Herdr closes a popup by hanging up on it, and ctrl+c never reaches the close
+// key either. Whatever ends the session, the writing has to survive it.
+func TestADraftSurvivesAnEndingNobodyAskedFor(t *testing.T) {
+	t.Parallel()
+	drafts := &fakeDrafts{}
+
+	target := &recordingTarget{}
+	var model tea.Model = overlay.New(context.Background(),
+		promptflow.New(stubTranslator{english: english}, target, target),
+		overlay.Options{Service: "deepl", Language: "EN-US", Vim: true, Drafts: drafts})
+	model, _ = model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("Bitte behebe den Test")})
+
+	if err := model.(overlay.Model).KeepUnfinished(); err != nil {
+		t.Fatalf("keeping the draft: %v", err)
+	}
+	if len(drafts.saved) != 1 || drafts.saved[0] != "Bitte behebe den Test" {
+		t.Errorf("the store was given %v, want the draft as it stood", drafts.saved)
+	}
+}
+
+func TestASentDraftIsNotWrittenBackOnTheWayOut(t *testing.T) {
+	t.Parallel()
+	drafts := &fakeDrafts{}
+
+	target := &recordingTarget{}
+	var model tea.Model = overlay.New(context.Background(),
+		promptflow.New(stubTranslator{english: english}, target, target),
+		overlay.Options{Service: "deepl", Language: "EN-US", Vim: true, Drafts: drafts})
+	model, _ = model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("Bitte behebe den Test")})
+	model, _ = model.Update(overlay.PromptDelivered())
+
+	if err := model.(overlay.Model).KeepUnfinished(); err != nil {
+		t.Fatalf("keeping the draft: %v", err)
+	}
+	if len(drafts.saved) != 0 {
+		t.Errorf("the store was given %v, want a sent draft left forgotten", drafts.saved)
+	}
+}
+
 func TestARestoredDraftSaysThatItWasResumed(t *testing.T) {
 	t.Parallel()
 	drafts := &fakeDrafts{kept: "Bitte behebe den Test"}
