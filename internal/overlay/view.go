@@ -31,11 +31,6 @@ var (
 	dangerStyle      = lipgloss.NewStyle().Foreground(danger)
 	modeStyle        = lipgloss.NewStyle().Foreground(accent).Bold(true)
 
-	boxStyle = lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(frame).
-			Padding(0, 1)
-
 	draftBoxStyle = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(frame).
@@ -58,7 +53,9 @@ func (m Model) View() string {
 	}
 	parts = append(parts, m.footer(line))
 
-	return boxStyle.Render(lipgloss.JoinVertical(lipgloss.Left, parts...))
+	// No box of our own: herdr already draws one around the popup, and a second
+	// frame inside it only takes room from the draft.
+	return lipgloss.JoinVertical(lipgloss.Left, parts...)
 }
 
 // englishPane keeps the translation in view while the draft is written.
@@ -82,7 +79,11 @@ func (m Model) header(line int) string {
 		destination = "review"
 	}
 	if m.options.Live {
-		destination = "live · " + destination
+		live := "live"
+		if m.options.Pulse {
+			live = m.pulseGlyph() + " live"
+		}
+		destination = live + " · " + destination
 	}
 	parts := []string{m.options.Service, "→", m.options.Language, "·", destination}
 	if m.resumed {
