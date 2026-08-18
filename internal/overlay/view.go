@@ -37,28 +37,52 @@ var (
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(frame).
 			Padding(0, 1)
+
+	englishBoxStyle = lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(accent).
+			Padding(0, 1)
 )
 
 func (m Model) View() string {
 	draft := draftBoxStyle.Width(m.width).Render(m.draft.View())
 	line := lipgloss.Width(draft)
 
-	dialog := boxStyle.Render(lipgloss.JoinVertical(
-		lipgloss.Left,
-		m.header(line),
-		draft,
-		m.footer(line),
-	))
+	parts := []string{m.header(line), draft}
+	if m.options.Live {
+		parts = append(parts, m.englishPane())
+	}
+	parts = append(parts, m.footer(line))
+
+	dialog := boxStyle.Render(lipgloss.JoinVertical(lipgloss.Left, parts...))
 	if m.height <= lipgloss.Height(dialog) {
 		return dialog
 	}
 	return lipgloss.Place(lipgloss.Width(dialog), m.height, lipgloss.Left, lipgloss.Center, dialog)
 }
 
+// englishPane keeps the translation in view while the draft is written.
+func (m Model) englishPane() string {
+	body := placeholderStyle.Render("…")
+	switch {
+	case m.previewError != nil:
+		body = dangerStyle.Render("✗ " + m.previewError.Error())
+	case m.preview != "":
+		body = textStyle.Render(m.preview)
+		if !m.previewIsCurrent() {
+			body = placeholderStyle.Render(m.preview)
+		}
+	}
+	return englishBoxStyle.Width(m.width).Render(body)
+}
+
 func (m Model) header(line int) string {
 	destination := "send"
 	if m.options.Review {
 		destination = "review"
+	}
+	if m.options.Live {
+		destination = "live · " + destination
 	}
 	badge := badgeStyle.Render(strings.Join(
 		[]string{m.options.Service, "→", m.options.Language, "·", destination}, " ",

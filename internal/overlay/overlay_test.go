@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"io"
+	"sync"
 	"testing"
 	"time"
 
@@ -267,4 +269,145 @@ func TestAnEmptyDraftShowsWhatToDo(t *testing.T) {
 
 	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyCtrlC})
 	overlayUnderTest.WaitFinished(t, teatest.WithFinalTimeout(2*time.Second))
+}
+
+type gatedTranslator struct {
+	mu      sync.Mutex
+	calls   int
+	started chan struct{}
+	release chan struct{}
+}
+
+func (g *gatedTranslator) Translate(_ context.Context, _ string) (string, error) {
+	g.mu.Lock()
+	g.calls++
+	call := g.calls
+	g.mu.Unlock()
+
+	if call == 1 {
+		close(g.started)
+		<-g.release
+		return "FIRST", nil
+	}
+	return "SECOND", nil
+}
+
+func liveOverlay(t *testing.T, translator promptflow.Translator, target promptflow.Target) *teatest.TestModel {
+	t.Helper()
+	return newOverlayWith(t, translator, target, overlay.Options{
+		Service:  "deepl",
+		Language: "EN-US",
+		Live:     true,
+		Debounce: 20 * time.Millisecond,
+	})
+}
+
+func TestLiveModeShowsTheEnglishWhileYouWrite(t *testing.T) {
+	t.Parallel()
+	target := &recordingTarget{}
+
+	overlayUnderTest := liveOverlay(t, stubTranslator{english: english}, target)
+	overlayUnderTest.Type(draft)
+
+	teatest.WaitFor(t, overlayUnderTest.Output(), func(out []byte) bool {
+		return bytes.Contains(out, []byte(english))
+	}, teatest.WithDuration(3*time.Second))
+
+	if len(target.inserted) != 0 {
+		t.Errorf("target received %v, want a preview only", target.inserted)
+	}
+
+	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyCtrlC})
+	overlayUnderTest.WaitFinished(t, teatest.WithFinalTimeout(2*time.Second))
+}
+
+func TestWithoutLiveModeNothingIsTranslatedUntilYouSend(t *testing.T) {
+	t.Parallel()
+	translator := &recordingTranslator{english: english}
+
+	overlayUnderTest := newOverlay(t, translator, &recordingTarget{})
+	overlayUnderTest.Type(draft)
+	time.Sleep(200 * time.Millisecond)
+
+	if translator.seenDraft != "" {
+		t.Errorf("translator was called with %q, want no call before sending", translator.seenDraft)
+	}
+
+	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyCtrlC})
+	overlayUnderTest.WaitFinished(t, teatest.WithFinalTimeout(2*time.Second))
+}
+
+func TestALatePreviewNeverOverwritesANewerOne(t *testing.T) {
+	t.Parallel()
+	translator := &gatedTranslator{started: make(chan struct{}), release: make(chan struct{})}
+
+	overlayUnderTest := liveOverlay(t, translator, &recordingTarget{})
+	overlayUnderTest.Type("erste Fassung")
+	<-translator.started
+
+	overlayUnderTest.Type(" zweite Fassung")
+	teatest.WaitFor(t, overlayUnderTest.Output(), func(out []byte) bool {
+		return bytes.Contains(out, []byte("SECOND"))
+	}, teatest.WithDuration(3*time.Second))
+
+	close(translator.release)
+	time.Sleep(300 * time.Millisecond)
+
+	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyCtrlC})
+	overlayUnderTest.WaitFinished(t, teatest.WithFinalTimeout(2*time.Second))
+
+	shown, err := io.ReadAll(overlayUnderTest.Output())
+	if err != nil {
+		t.Fatalf("reading output: %v", err)
+	}
+	if bytes.Contains(shown, []byte("FIRST")) {
+		t.Error("the stale translation was shown, want it discarded")
+	}
+}
+
+func TestSendingAfterAPreviewDeliversItWithoutTranslatingAgain(t *testing.T) {
+	t.Parallel()
+	translator := &countingTranslator{english: english}
+	target := &recordingTarget{}
+
+	overlayUnderTest := liveOverlay(t, translator, target)
+	overlayUnderTest.Type(draft)
+
+	teatest.WaitFor(t, overlayUnderTest.Output(), func(out []byte) bool {
+		return bytes.Contains(out, []byte(english))
+	}, teatest.WithDuration(3*time.Second))
+
+	// Typing may well have cost more than one translation on the way; what
+	// matters is that sending costs none.
+	beforeSending := translator.count()
+
+	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyCtrlD})
+	overlayUnderTest.WaitFinished(t, teatest.WithFinalTimeout(2*time.Second))
+
+	if len(target.inserted) != 1 || target.inserted[0] != english {
+		t.Errorf("target received %v, want the previewed translation delivered", target.inserted)
+	}
+	if calls := translator.count(); calls != beforeSending {
+		t.Errorf("sending cost %d more translations, want the preview reused",
+			calls-beforeSending)
+	}
+}
+
+type countingTranslator struct {
+	mu      sync.Mutex
+	calls   int
+	english string
+}
+
+func (c *countingTranslator) Translate(_ context.Context, _ string) (string, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.calls++
+	return c.english, nil
+}
+
+func (c *countingTranslator) count() int {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.calls
 }

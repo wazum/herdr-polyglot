@@ -84,7 +84,6 @@ func TestTranslateReturnsTheEnglishWithoutTouchingTheTarget(t *testing.T) {
 
 	translated, err := promptflow.New(translator, target).
 		Translate(context.Background(), "Bitte behebe den fehlschlagenden Test")
-
 	if err != nil {
 		t.Fatalf("Translate returned unexpected error: %v", err)
 	}
@@ -115,7 +114,6 @@ func TestDeliverSendsAlreadyTranslatedTextWithoutTranslatingAgain(t *testing.T) 
 
 	err := promptflow.New(translator, target).
 		Deliver(context.Background(), "Please fix the failing test")
-
 	if err != nil {
 		t.Fatalf("Deliver returned unexpected error: %v", err)
 	}

@@ -61,6 +61,7 @@ func run(ctx context.Context) error {
 			Language: settings.Options.TargetLanguage,
 			Review:   !settings.Submit,
 			Vim:      settings.Vim,
+			Live:     settings.Live,
 		}),
 		tea.WithContext(ctx),
 		tea.WithAltScreen(),

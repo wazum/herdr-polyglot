@@ -21,6 +21,7 @@ const (
 	endpointVar  = "HERDR_POLYGLOT_ENDPOINT"
 	submitVar    = "HERDR_POLYGLOT_SUBMIT"
 	vimVar       = "HERDR_POLYGLOT_VIM"
+	liveVar      = "HERDR_POLYGLOT_LIVE"
 	configDirVar = "HERDR_PLUGIN_CONFIG_DIR"
 	binaryVar    = "HERDR_BIN_PATH"
 
@@ -38,6 +39,7 @@ type Settings struct {
 	HerdrBinary string
 	Submit      bool
 	Vim         bool
+	Live        bool
 }
 
 // The environment wins over the .env file, so a one-off invocation can
@@ -63,6 +65,7 @@ func Load(getenv func(string) string) (Settings, error) {
 		HerdrBinary: orDefault(lookup(binaryVar), defaultBinary),
 		Submit:      !isDisabled(lookup(submitVar)),
 		Vim:         isEnabled(lookup(vimVar)),
+		Live:        isEnabled(lookup(liveVar)),
 		Options: translation.Options{
 			APIKey:         orDefault(lookup(scopedKeyVar(provider)), lookup(apiKeyVar)),
 			TargetLanguage: orDefault(lookup(languageVar), defaultLanguage),
