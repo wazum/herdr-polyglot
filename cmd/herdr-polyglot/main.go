@@ -79,7 +79,11 @@ func run(ctx context.Context) error {
 	ctx, stopListening := signal.NotifyContext(ctx, os.Interrupt)
 	defer stopListening()
 
-	flow := promptflow.New(translator, target(settings.HerdrBinary, settings.Target, settings.Submit))
+	runner := herdr.NewExecRunner(settings.HerdrBinary)
+	flow := promptflow.New(translator,
+		herdr.NewAgentPrompt(runner, settings.Target),
+		herdr.NewPaneText(runner, settings.Target),
+	)
 	program := tea.NewProgram(
 		overlay.New(ctx, flow, overlay.Options{
 			Service:  service,
@@ -111,12 +115,4 @@ func drafts(keep bool, stateDir, target string) overlay.Drafts {
 		return nil
 	}
 	return draft.NewStore(stateDir).For(target)
-}
-
-func target(binary, pane string, submit bool) promptflow.Target {
-	runner := herdr.NewExecRunner(binary)
-	if submit {
-		return herdr.NewAgentPrompt(runner, pane)
-	}
-	return herdr.NewPaneText(runner, pane)
 }

@@ -93,7 +93,9 @@ description = "write a prompt, review before sending"
 ```
 
 `prompt` sends the translated prompt straight to the agent. `compose` types it
-into the agent's input and leaves the final keystroke to you.
+into the agent's input and leaves the final keystroke to you. Either way `ctrl+r`
+switches to the other one while you write, so one keybinding is enough — the
+header says which it will be.
 
 `t` as in translate: herdr already uses `prefix+p` for the previous tab and
 `prefix+shift+p` for renaming a pane. Free letters are `a`, `d`, `f`, `i`, `m`,
@@ -104,6 +106,8 @@ into the agent's input and leaves the final keystroke to you.
 | | |
 | --- | --- |
 | `ctrl+d` | translate and send |
+| `ctrl+r` | switch between sending the prompt and only typing it into the input |
+| `ctrl+l` | turn live translation on or off for this prompt |
 | `enter` | a new line, because a prompt is often more than one |
 | `esc` | close, or leave insert mode when vim bindings are on |
 | `q` | close, from normal mode |
