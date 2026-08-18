@@ -29,7 +29,6 @@ func TestLoadTakesTheTargetAndCredentialsFromTheEnvironment(t *testing.T) {
 		"HERDR_POLYGLOT_TARGET":  "w1:p3",
 		"HERDR_POLYGLOT_API_KEY": "key-123",
 	}))
-
 	if err != nil {
 		t.Fatalf("Load returned unexpected error: %v", err)
 	}
@@ -64,7 +63,6 @@ func TestLoadHonoursTheChosenServiceAndItsOptions(t *testing.T) {
 		"HERDR_POLYGLOT_SUBMIT":   "0",
 		"HERDR_BIN_PATH":          "/opt/homebrew/bin/herdr",
 	}))
-
 	if err != nil {
 		t.Fatalf("Load returned unexpected error: %v", err)
 	}
@@ -93,7 +91,6 @@ func TestLoadReadsSettingsFromTheDotEnvInThePluginConfigDirectory(t *testing.T) 
 		"HERDR_POLYGLOT_TARGET":   "w1:p3",
 		"HERDR_PLUGIN_CONFIG_DIR": configDir,
 	}))
-
 	if err != nil {
 		t.Fatalf("Load returned unexpected error: %v", err)
 	}
@@ -117,7 +114,6 @@ func TestAServiceSpecificKeyWinsOverTheGenericOne(t *testing.T) {
 		"HERDR_POLYGLOT_PROVIDER": "acme",
 		"HERDR_PLUGIN_CONFIG_DIR": configDir,
 	}))
-
 	if err != nil {
 		t.Fatalf("Load returned unexpected error: %v", err)
 	}
@@ -135,7 +131,6 @@ func TestTheEnvironmentWinsOverTheDotEnvFile(t *testing.T) {
 		"HERDR_PLUGIN_CONFIG_DIR": configDir,
 		"HERDR_POLYGLOT_API_KEY":  "key-from-environment",
 	}))
-
 	if err != nil {
 		t.Fatalf("Load returned unexpected error: %v", err)
 	}
@@ -148,7 +143,6 @@ func TestLoadLeavesMissingCredentialsToTheService(t *testing.T) {
 	t.Parallel()
 
 	settings, err := config.Load(envFrom(map[string]string{"HERDR_POLYGLOT_TARGET": "w1:p3"}))
-
 	if err != nil {
 		t.Fatalf("Load returned unexpected error: %v", err)
 	}

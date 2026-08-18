@@ -54,7 +54,7 @@ func run(ctx context.Context) error {
 	ctx, stopListening := signal.NotifyContext(ctx, os.Interrupt)
 	defer stopListening()
 
-	flow := promptflow.New(translator, target(settings))
+	flow := promptflow.New(translator, target(settings.HerdrBinary, settings.Target, settings.Submit))
 	program := tea.NewProgram(
 		overlay.New(ctx, flow, overlay.Options{
 			Service:  service,
@@ -70,10 +70,10 @@ func run(ctx context.Context) error {
 	return nil
 }
 
-func target(settings config.Settings) promptflow.Target {
-	runner := herdr.NewExecRunner(settings.HerdrBinary)
-	if settings.Submit {
-		return herdr.NewAgentPrompt(runner, settings.Target)
+func target(binary, pane string, submit bool) promptflow.Target {
+	runner := herdr.NewExecRunner(binary)
+	if submit {
+		return herdr.NewAgentPrompt(runner, pane)
 	}
-	return herdr.NewPaneText(runner, settings.Target)
+	return herdr.NewPaneText(runner, pane)
 }

@@ -40,7 +40,6 @@ func TestTranslateReturnsTheEnglishTextForTheDraft(t *testing.T) {
 	client := deepl.New("key-123", deepl.WithEndpoint(server.URL))
 
 	translated, err := client.Translate(context.Background(), "Bitte behebe den fehlschlagenden Test")
-
 	if err != nil {
 		t.Fatalf("Translate returned unexpected error: %v", err)
 	}

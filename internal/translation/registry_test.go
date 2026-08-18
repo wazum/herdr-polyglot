@@ -39,7 +39,6 @@ func TestTheRegistryBuildsTheRequestedProviderWithTheGivenOptions(t *testing.T) 
 	options := translation.Options{APIKey: "key-123", TargetLanguage: "EN-GB"}
 
 	translator, err := registry.Translator("wanted", options)
-
 	if err != nil {
 		t.Fatalf("Translator returned unexpected error: %v", err)
 	}

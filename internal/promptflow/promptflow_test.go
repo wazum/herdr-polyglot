@@ -32,7 +32,6 @@ func TestSubmitTranslatesTheDraftAndInsertsTheResultIntoTheTarget(t *testing.T) 
 
 	translated, err := promptflow.New(translator, target).
 		Submit(context.Background(), "Bitte behebe den fehlschlagenden Test")
-
 	if err != nil {
 		t.Fatalf("Submit returned unexpected error: %v", err)
 	}

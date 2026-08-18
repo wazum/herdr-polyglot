@@ -11,7 +11,6 @@ func TestDryRunMarksTheDraftInsteadOfCallingAnAPI(t *testing.T) {
 	t.Parallel()
 
 	translated, err := translation.DryRun{}.Translate(context.Background(), "Bitte behebe den Test")
-
 	if err != nil {
 		t.Fatalf("Translate returned unexpected error: %v", err)
 	}

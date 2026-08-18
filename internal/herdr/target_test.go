@@ -20,7 +20,6 @@ func TestAgentPromptSubmitsTheTextToTheAgent(t *testing.T) {
 	runner := &recordingRunner{}
 
 	err := herdr.NewAgentPrompt(runner, "w1:p3").Insert(context.Background(), "Please fix the failing test")
-
 	if err != nil {
 		t.Fatalf("Insert returned unexpected error: %v", err)
 	}
@@ -34,7 +33,6 @@ func TestPaneTextInsertsTheTextWithoutSubmitting(t *testing.T) {
 	runner := &recordingRunner{}
 
 	err := herdr.NewPaneText(runner, "w1:p3").Insert(context.Background(), "Please fix the failing test")
-
 	if err != nil {
 		t.Fatalf("Insert returned unexpected error: %v", err)
 	}

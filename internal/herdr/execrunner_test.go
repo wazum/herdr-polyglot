@@ -26,7 +26,6 @@ func TestExecRunnerPassesEveryArgumentToTheBinaryVerbatim(t *testing.T) {
 
 	err := herdr.NewExecRunner(binary).
 		Run(context.Background(), "pane", "send-text", "w1:p3", "erste Zeile\nzweite Zeile")
-
 	if err != nil {
 		t.Fatalf("Run returned unexpected error: %v", err)
 	}
