@@ -226,9 +226,14 @@ func (m *Model) repeat(times int, action func()) {
 	}
 }
 
+// maxCount bounds a repetition. A draft is a prompt, not a file, so anything
+// past this is a typo, and honouring it literally would hang the popup or run
+// the machine out of memory.
+const maxCount = 1_000
+
 // takeCount consumes the count typed before a command, such as the 3 in 3j.
 func (m *Model) takeCount() int {
-	count := max(m.count, 1)
+	count := min(max(m.count, 1), maxCount)
 	m.count = 0
 	return count
 }
@@ -259,15 +264,31 @@ func (m *Model) setCol(col int) {
 }
 
 // toRow moves between logical lines. A soft-wrapped line spans several screen
-// rows, which is what the text area's own cursor movement counts.
+// rows, which is what the text area's own cursor movement counts, so this walks
+// screen rows until the logical line changes. A line exactly as wide as the box
+// wraps to a row the cursor cannot enter, so give up as soon as a step stops
+// moving rather than walk on the spot for ever.
 func (m *Model) toRow(target int) {
 	target = min(max(target, 0), m.area.LineCount()-1)
+
 	for m.area.Line() > target {
-		m.area.CursorUp()
+		if !m.step(m.area.CursorUp) {
+			return
+		}
 	}
 	for m.area.Line() < target {
-		m.area.CursorDown()
+		if !m.step(m.area.CursorDown) {
+			return
+		}
 	}
+}
+
+// step reports whether a cursor movement changed anything at all.
+func (m *Model) step(move func()) bool {
+	line, info := m.area.Line(), m.area.LineInfo()
+	move()
+	after := m.area.LineInfo()
+	return m.area.Line() != line || after.RowOffset != info.RowOffset
 }
 
 // toLine goes to a row and lands on the column vim would remember.

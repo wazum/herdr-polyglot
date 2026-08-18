@@ -113,7 +113,7 @@ func (m Model) resolvePending(pressed rune) Model {
 	operator := m.pending
 	m.pending = ""
 
-	count := max(m.count, 1) * max(m.pendingCount, 1)
+	count := min(max(m.count, 1)*max(m.pendingCount, 1), maxCount)
 	explicit := m.count
 	m.count, m.pendingCount = 0, 0
 
