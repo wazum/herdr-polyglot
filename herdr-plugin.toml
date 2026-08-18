@@ -9,15 +9,22 @@ description = "Write agent prompts in your own language; DeepL delivers them as 
 command = ["bash", "herdr/install.sh"]
 
 # The overlay is launched by herdr/open.sh, which passes the invoking pane along as
-# HERDR_DEEPL_TARGET so the prompt lands where the keybinding was pressed.
+# HERDR_DEEPL_TARGET so the prompt lands where the keybinding was pressed. All other
+# settings come from the environment or the plugin's .env, never from argv.
 [[panes]]
 id = "overlay"
 title = "deepl-prompt"
 placement = "overlay"
-command = ["sh", "-c", "exec \"$HERDR_PLUGIN_ROOT/bin/herdr-deepl-prompt\" $HERDR_DEEPL_ARGS"]
+command = ["sh", "-c", "exec \"$HERDR_PLUGIN_ROOT/bin/herdr-deepl-prompt\""]
 
 [[actions]]
-id = "open"
-title = "deepl-prompt: write a prompt"
+id = "prompt"
+title = "deepl-prompt: write and send a prompt"
 contexts = ["pane"]
-command = ["bash", "herdr/open.sh"]
+command = ["bash", "herdr/open.sh", "submit"]
+
+[[actions]]
+id = "compose"
+title = "deepl-prompt: write a prompt, review before sending"
+contexts = ["pane"]
+command = ["bash", "herdr/open.sh", "compose"]
