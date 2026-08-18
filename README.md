@@ -1,47 +1,37 @@
 # polyglot
 
 [![CI](https://github.com/wazum/herdr-polyglot/actions/workflows/ci.yml/badge.svg)](https://github.com/wazum/herdr-polyglot/actions/workflows/ci.yml)
-[![Go Reference](https://pkg.go.dev/badge/github.com/wazum/herdr-polyglot.svg)](https://pkg.go.dev/github.com/wazum/herdr-polyglot)
 [![Go](https://img.shields.io/github/go-mod/go-version/wazum/herdr-polyglot)](go.mod)
 [![herdr](https://img.shields.io/badge/herdr-%E2%89%A5%200.8.0-6C3EF5)](https://herdr.dev)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-A [herdr](https://herdr.dev) plugin for people who think faster in their own
-language than in English. Press a key on any agent pane, an overlay opens above
-it, you write the prompt in your language, and the translated prompt lands in
-the agent's input.
-
-Works with every agent herdr manages — Claude Code, Codex, opencode and the
-rest — because the prompt is delivered through herdr, not typed into a specific
-tool.
+Write prompts in the language you think in. A [herdr](https://herdr.dev) plugin:
+press a key on any agent pane, an overlay opens above it, you write, and the
+English translation lands in the agent's input. It works with Claude Code, Codex,
+opencode and the rest, because the prompt goes through herdr rather than into a
+particular tool.
 
 ```
-╭──────────────────────────────────────────────╮
-│ ✳ polyglot              deepl → EN-US · send │
-│ ╭──────────────────────────────────────────╮ │
-│ │ Bitte behebe den fehlschlagenden Test    │ │
-│ ╰──────────────────────────────────────────╯ │
-│ INSERT  alt+enter send · esc → normal        │
-╰──────────────────────────────────────────────╯
+╭────────────────────────────────────────────────────────────╮
+│ deepl → EN-US · ● live · sends to agent · 12.3k/1M chars   │
+│ ╭────────────────────────────────────────────────────────╮ │
+│ │ Bitte behebe den fehlschlagenden Test im Formular      │ │
+│ ╰────────────────────────────────────────────────────────╯ │
+│ ╭────────────────────────────────────────────────────────╮ │
+│ │ Please fix the failing test in the form                │ │
+│ ╰────────────────────────────────────────────────────────╯ │
+│ alt+enter send · ctrl+r → fill · ctrl+l live      INSERT   │
+╰────────────────────────────────────────────────────────────╯
 ```
 
-Sending is deliberate: `alt+enter` translates and delivers, while `enter` stays
-what it should be inside a text box — a new line.
-
-## Install
+## Quick start
 
 ```bash
 herdr plugin install wazum/herdr-polyglot
 ```
 
-Building from source needs Go; the install script compiles the overlay binary
-into the plugin root.
-
-## Configure
-
-Credentials live in the plugin's own config directory, which herdr can print.
-Create the file so that only you can read it — a plain redirect leaves it
-readable by everyone on the machine:
+Put your key in the plugin's own config directory, readable only by you — a
+plain redirect would leave it readable by everyone on the machine:
 
 ```bash
 ENV_FILE="$(herdr plugin config-dir wazum.polyglot)/.env"
@@ -49,34 +39,10 @@ touch "$ENV_FILE" && chmod 600 "$ENV_FILE"
 echo "HERDR_POLYGLOT_API_KEY=your-deepl-key" >> "$ENV_FILE"
 ```
 
-[DeepL's free tier](https://www.deepl.com/pro-api) covers 500,000 characters a
-month. Free keys end in `:fx`, and the plugin sends those to DeepL's free host
-by itself.
+A [DeepL API key](https://www.deepl.com/pro-api) has a free tier. Free keys end
+in `:fx`, and the plugin sends those to DeepL's free host by itself.
 
-| Setting | Meaning |
-| --- | --- |
-| `HERDR_POLYGLOT_API_KEY` | Credentials for the translation service |
-| `HERDR_POLYGLOT_PROVIDER` | Which service to use: `deepl` (default) or `dry-run` |
-| `HERDR_POLYGLOT_LANGUAGE` | Target language, `EN-US` by default |
-| `HERDR_POLYGLOT_ENDPOINT` | Override the service endpoint |
-| `HERDR_POLYGLOT_SUBMIT` | `0` types the prompt without sending it |
-| `HERDR_POLYGLOT_VIM` | `1` turns on the vim bindings described below |
-| `HERDR_POLYGLOT_LIVE` | `1` translates while you write, see below |
-| `HERDR_POLYGLOT_CONFIRM` | `1` shows the English and waits for a second `alt+enter` |
-| `HERDR_POLYGLOT_KEEP_DRAFT` | `0` starts from an empty box instead of resuming |
-| `HERDR_POLYGLOT_MAX_DRAFT` | Characters before the box says the draft is too long, `2000` by default |
-| `HERDR_POLYGLOT_PULSE` | `0` stops the live circle from breathing |
-
-Every setting can also be passed as an environment variable, which wins over
-the `.env` file. With `HERDR_POLYGLOT_PROVIDER=dry-run` the overlay marks the
-draft instead of translating it, so you can check the wiring without a key.
-
-To keep keys for several services side by side, scope them by service name:
-`HERDR_POLYGLOT_DEEPL_API_KEY`.
-
-## Bind a key
-
-In `~/.config/herdr/config.toml`:
+Then bind a key in `~/.config/herdr/config.toml`:
 
 ```toml
 [[keys.command]]
@@ -84,187 +50,87 @@ key = "prefix+t"
 type = "plugin_action"
 command = "wazum.polyglot.prompt"
 description = "write a prompt in your own language"
-
-[[keys.command]]
-key = "prefix+d"
-type = "plugin_action"
-command = "wazum.polyglot.compose"
-description = "write a prompt, review before sending"
 ```
 
-`prompt` sends the translated prompt straight to the agent. `compose` types it
-into the agent's input and leaves the final keystroke to you. Either way `ctrl+r`
-switches to the other one while you write, so one keybinding is enough — the
-header says which it will be.
-
-`t` as in translate: herdr already uses `prefix+p` for the previous tab and
-`prefix+shift+p` for renaming a pane. Free letters are `a`, `d`, `f`, `i`, `m`,
-`t`, `u` and `y` — if you want `p`, move herdr's `previous_tab` first.
+`t` as in translate — herdr already uses `prefix+p` for the previous tab. There
+is a second action, `wazum.polyglot.compose`, which types the prompt into the
+agent's input instead of sending it, and `ctrl+r` switches between the two while
+you write, so one keybinding is enough.
 
 ## In the popup
 
 | | |
 | --- | --- |
-| `alt+enter` | translate and hand the prompt over — `ctrl+d` does the same |
-| `ctrl+r` | switch between `send` and `paste` — the header says which one is next |
-| `ctrl+l` | turn live translation on or off for this prompt |
+| `alt+enter` | translate and hand the prompt over (`ctrl+d` does the same) |
 | `enter` | a new line, because a prompt is often more than one |
-| `esc` | close — with vim bindings on, first to normal mode, then close |
+| `ctrl+r` | switch between sending it and only filling the input |
+| `ctrl+l` | turn live translation on or off for this prompt |
 | `ctrl+u` | throw the draft away, as it clears a line in a shell |
+| `esc` | close — with vim bindings on, first to normal mode, then close |
 | `ctrl+c` | close, always |
 
-When something did not work — a blank draft, a service that says no — the footer
-says so, `esc` takes the message away, and it goes by itself after a few seconds.
+The header says which of the two will happen: `sends to agent` hands the prompt
+over and the agent starts working, `fills the input` types it there and leaves
+the last keystroke to you. When something does not work the footer says so, `esc`
+takes the message away, and it goes by itself after a few seconds.
 
-The header says what `alt+enter` will do: `sends to agent` hands the prompt over
-and the agent starts working, `fills the input` only types it there and leaves
-the final keystroke to you.
+## Settings
 
-With vim bindings on, `esc` goes to normal mode and a second `esc` closes. Nothing
-is lost either way, because the draft is kept.
+Every setting can be a line in the `.env` file or an environment variable, which
+wins over the file. A value that is neither on (`1`, `true`, `yes`, `on`) nor off
+(`0`, `false`, `no`, `off`) is refused rather than guessed at.
 
-## An unfinished prompt is kept
-
-Closing the popup does not lose the draft, however it closes — `esc`, `ctrl+c`, or
-herdr taking the popup away. It is written to the plugin's own state
-directory, one file per pane, readable only by you, and comes back the next time
-you open the popup there — the header says `resumed` until you type, and `ctrl+u`
-throws it away. A sent prompt is forgotten immediately.
-
-Since a draft is unfinished thinking about your code, it sits on disk until sent
-or discarded. `HERDR_POLYGLOT_KEEP_DRAFT=0` turns that off and always starts from
-an empty box. Herdr decides where the files go and tells the plugin through
-`HERDR_PLUGIN_STATE_DIR`, alongside the config directory that `herdr plugin
-config-dir wazum.polyglot` prints.
-
-## Reading the English before it goes
-
-`HERDR_POLYGLOT_CONFIRM=1` puts a stop between translating and sending: `alt+enter`
-shows the English, a second `alt+enter` delivers it, and `esc` goes back to
-writing. It costs one translation, not two, and pairs well with live off.
-
-## Live translation
-
-Off by default: the draft is translated once, when you send it. With
-`HERDR_POLYGLOT_LIVE=1` the English appears in a second pane and follows what
-you write, roughly 600ms after you stop typing.
-
-```
-╭────────────────────────────────────────────────╮
-│ ✳ polyglot        deepl → EN-US · live · send  │
-│ ╭────────────────────────────────────────────╮ │
-│ │ Bitte behebe den fehlschlagenden Test      │ │
-│ ╰────────────────────────────────────────────╯ │
-│ ╭────────────────────────────────────────────╮ │
-│ │ Please fix the failing test                │ │
-│ ╰────────────────────────────────────────────╯ │
-│ INSERT  alt+enter send · esc → normal          │
-╰────────────────────────────────────────────────╯
-```
-
-Translating on every pause would mean paying for the whole draft again and
-again, so live mode does two things about it. The draft is split into sentences
-and each one is translated once — while you write the fourth sentence, the first
-three are already known and cost nothing. And every sentence is sent with the
-rest of the draft as [context](https://developers.deepl.com/docs/api-reference/translate),
-which informs the translation without being billed, so a sentence is not
-translated in isolation.
-
-Sending costs nothing extra either: if the English on screen belongs to the
-draft as it stands, that text is delivered as it is. A translation you have read
-is never paid for twice. While a preview is out of date it is dimmed, and a
-newer one always wins over a slower older one.
-
-The circle beside `live` fills and empties while a translation is on its way, so
-you can see it working without watching the text.
-
-A draft that comes back from an earlier session arrives with live translation off,
-whatever the setting says, and the footer says so: yesterday's draft is paid for
-by the character like any other, and it might be a cat on the keyboard. `ctrl+l`
-turns it on when the draft is worth translating.
-
-A draft longer than 2,000 characters stops being translated as you write, and the
-box says so: this is a place for prompts you write, not files you paste. Sending
-still works, and `ctrl+u` throws the draft away.
-
-## Vim bindings
-
-Off by default, since modal editing is a matter of taste. With
-`HERDR_POLYGLOT_VIM=1` the draft box becomes modal, and the footer shows which
-mode you are in. It covers what makes sense inside a text box — there are no
-files, buffers or windows here, so nothing that acts on them exists.
-
-| | |
+| Setting | Meaning |
 | --- | --- |
-| Modes | `esc` to normal, `i` `a` `I` `A` `o` `O` back to insert |
-| Motions | `h` `j` `k` `l`, `w` `b` `e`, `0` `^` `$`, `gg` `G`, arrow keys |
-| Delete | `x`, `dd`, `D`, `dw`, `db`, `d$`, `d0` |
-| Change | `cw`, `cc`, `C` |
-| Yank and paste | `yy`, `p`, `P` |
-| Undo | `u` |
-| Counts | `3j`, `2dd`, `3x` and so on |
-| Leaving | `alt+enter` sends, `esc` closes from normal mode, `ctrl+c` always closes |
+| `HERDR_POLYGLOT_API_KEY` | Credentials for the translation service |
+| `HERDR_POLYGLOT_PROVIDER` | Which service: `deepl` (default) or `dry-run` |
+| `HERDR_POLYGLOT_LANGUAGE` | Target language, `EN-US` by default |
+| `HERDR_POLYGLOT_ENDPOINT` | Override the service endpoint |
+| `HERDR_POLYGLOT_SUBMIT` | `0` types the prompt without sending it |
+| `HERDR_POLYGLOT_VIM` | `1` turns on the [vim bindings](docs/vim.md) |
+| `HERDR_POLYGLOT_LIVE` | `1` translates while you write |
+| `HERDR_POLYGLOT_CONFIRM` | `1` shows the English and waits for a second `alt+enter` |
+| `HERDR_POLYGLOT_KEEP_DRAFT` | `0` starts from an empty box instead of resuming |
+| `HERDR_POLYGLOT_MAX_DRAFT` | Characters before the box says the draft is too long, `2000` by default |
+| `HERDR_POLYGLOT_PULSE` | `0` stops the live circle from breathing |
 
-Without vim, the box is an ordinary text area and `esc` closes it.
+With `HERDR_POLYGLOT_PROVIDER=dry-run` the overlay marks the draft instead of
+translating it, so you can check the wiring without a key. To keep keys for
+several services side by side, scope them by name: `HERDR_POLYGLOT_DEEPL_API_KEY`.
 
-Pasting works in either mode and in the middle of a draft: the text is inserted
-where the cursor is and you keep writing after it. In normal mode a paste is
-still text, never a sequence of commands, the way bracketed paste behaves in
-nvim.
+## What else it does
+
+**An unfinished prompt is kept.** Drafts are stored privately, one per pane, and
+come back the next time you open the popup there, however it closed. A sent or
+discarded draft is forgotten.
+
+**Read the English first.** With `HERDR_POLYGLOT_CONFIRM=1`, `alt+enter`
+translates and shows the result, a second `alt+enter` delivers it, and `esc` goes
+back to writing. It costs one translation, not two.
+
+**Live translation.** The English follows your draft after a short pause. Each
+sentence is paid for once, and a translation you have already read is delivered
+as it stands, so writing costs little more than sending —
+[how that works](docs/live-translation.md). Live translation starts off for a
+draft that came back from an earlier session and for text you paste in, since
+neither is something you asked to have translated; `ctrl+l` turns it on.
+
+**Vim bindings.** `HERDR_POLYGLOT_VIM=1` makes the draft box modal, with the
+motions, edits and counts that make sense inside a text box —
+[the full list](docs/vim.md).
 
 ## What leaves your machine
 
-The draft is sent to the translation service, so treat it the way you treat
-anything you paste into a web translator. Prompts for a coding agent tend to
-carry file paths, code and occasionally a secret, and in live mode the draft
-goes out again after every pause in typing. Each sentence also travels with the
-text before it as context.
+The draft goes to the translation service, so treat it the way you treat
+anything you paste into a web translator: prompts for a coding agent carry file
+paths, code and occasionally a secret, and in live mode the draft goes out again
+after every pause in typing.
 
-Nothing else leaves: the API key goes to the translation service only, never to
-the agent, the herdr socket, a command line, or a child process. Translated text
+Nothing else leaves. The API key goes to the translation service only — never to
+the agent, the herdr socket, a command line or a child process. Translated text
 is stripped of control characters before it is typed into a pane, so neither a
 line break nor an escape sequence can reach the agent's terminal.
-
-Keep a draft off the network entirely with `HERDR_POLYGLOT_PROVIDER=dry-run`,
-which marks the text instead of translating it.
-
-## Colours
-
-The overlay names palette slots rather than fixed colours, so it takes on
-whatever herdr theme is active — nord looks like nord, gruvbox like gruvbox —
-including a light terminal. Herdr does not expose the theme to plugins, but it
-does paint the terminal palette, which is what the overlay draws with.
-
-## How it works
-
-The keybinding runs an action that knows which pane you pressed it in. It opens
-the draft box as a floating popup sized to exactly what the box needs, so the
-agent's output stays readable around it, and passes that pane id along in the
-environment. On `alt+enter` the draft goes to a translation service and the result
-is handed back to the same pane through the herdr CLI — `agent prompt` to send
-it, or `pane send-text` to type it without sending.
-
-Sized popups are only reachable over herdr's socket API, not its CLI, so the
-plugin binary speaks that protocol itself for this one call.
-
-## Another translation service
-
-DeepL is one implementation of a small interface, not a dependency of the design:
-
-```go
-type Provider interface {
-	Name() string
-	New(Options) (Translator, error)
-}
-
-type Translator interface {
-	Translate(ctx context.Context, draft string) (string, error)
-}
-```
-
-Add a package that implements it, register it in `services()` in
-`cmd/herdr-polyglot/main.go`, and it becomes selectable through
-`HERDR_POLYGLOT_PROVIDER`. The first registered service is the default.
+`HERDR_POLYGLOT_PROVIDER=dry-run` keeps a draft off the network entirely.
 
 ## Development
 
@@ -274,6 +140,7 @@ make build
 herdr plugin link .
 ```
 
-## License
-
-MIT
+The overlay names palette slots rather than fixed colours, so it takes on
+whatever herdr theme is active, including a light one.
+[How the pieces fit together](docs/architecture.md), including how to add another
+translation service.
