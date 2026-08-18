@@ -3,6 +3,7 @@ package overlay
 import (
 	"strings"
 
+	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
 )
 
@@ -10,9 +11,11 @@ import (
 // is anything to scroll, so text never rewraps when a bar appears.
 const scrollColumn = 2
 
+// A dashed hairline for the track, so it does not read as a second border, and a
+// heavier line in the accent colour for the thumb.
 const (
-	scrollTrack = "⡇"
-	scrollThumb = "⣿"
+	scrollTrack = "╎"
+	scrollThumb = "┃"
 )
 
 func (m Model) scrolled(body string, first, visible, total int) string {
@@ -36,9 +39,11 @@ func (m Model) scrolled(body string, first, visible, total int) string {
 		// The thumb is read, the track only tells it where it can go.
 		mark := m.styles.mark.Render(scrollTrack)
 		if index >= top && index < top+height {
-			mark = m.styles.text.Render(scrollThumb)
+			mark = m.styles.accent.Render(scrollThumb)
 		}
-		lines[index] = line + " " + mark
+		// Padded first: a bar is a column, not something that follows the text.
+		lines[index] = line + strings.Repeat(" ",
+			max(m.contentWidth()-lipgloss.Width(line), 0)) + " " + mark
 	}
 	return strings.Join(lines, "\n")
 }

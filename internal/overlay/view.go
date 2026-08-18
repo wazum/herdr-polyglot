@@ -12,6 +12,10 @@ import (
 )
 
 func (m Model) View() string {
+	if m.reading {
+		return m.readingView()
+	}
+
 	draft := m.styles.draftBox.Width(m.width).Render(m.draftBody())
 	line := lipgloss.Width(draft)
 
@@ -26,6 +30,24 @@ func (m Model) View() string {
 	return strings.Join(parts, "\n")
 }
 
+// While reading, the translation has every row the draft and its box were using.
+func (m Model) readingView() string {
+	rows := m.readingRows()
+	total := m.readingTotal()
+
+	text, style := m.english()
+	if m.preview == "" {
+		text = "nothing translated yet"
+	}
+	shown := style.Render(rowsFrom(text, m.contentWidth(), m.readingFrom, rows))
+
+	box := m.styles.englishBox.Width(m.width).Height(rows).
+		Render(m.scrolled(shown, m.readingFrom, rows, total))
+	line := lipgloss.Width(box)
+
+	return strings.Join([]string{m.header(line), box, m.readingFooter(line - 1)}, "\n")
+}
+
 // The mark is only ever drawn over space nobody is using, so it goes as soon as
 // there is a draft to read.
 func (m Model) draftBody() string {
@@ -37,24 +59,33 @@ func (m Model) draftBody() string {
 	return m.scrolled(body, first, visible, total)
 }
 
+// The text is fitted before it is styled: escape sequences in the middle of it
+// would decide where the lines break.
 func (m Model) englishPane() string {
-	body := m.styles.placeholder.Render("…")
-	switch {
-	case m.previewError != nil:
-		body = m.styles.danger.Render("✗ " + m.previewError.Error())
-	case m.preview != "":
-		body = m.styles.text.Render(m.preview)
-		if !m.previewIsCurrent() {
-			body = m.styles.placeholder.Render(m.preview)
-		}
-	}
+	text, style := m.english()
+
 	// The box holds the rows it holds: a longer translation scrolls to its end
 	// rather than growing the box and pushing the footer off the pane.
 	rows := englishRows - 2
-	total := rowsOf(body, m.contentWidth())
-	shown := lastRows(body, m.contentWidth(), rows)
+	total := rowsOf(text, m.contentWidth())
+	shown := style.Render(lastRows(text, m.contentWidth(), rows))
 	return m.styles.englishBox.Width(m.width).
 		Render(m.scrolled(shown, max(total-rows, 0), rows, total))
+}
+
+// english is the translation as it stands, and how it should read: dimmed while it
+// belongs to an older draft, in the danger colour when the service said no.
+func (m Model) english() (string, lipgloss.Style) {
+	switch {
+	case m.previewError != nil:
+		return "✗ " + m.previewError.Error(), m.styles.danger
+	case m.preview == "":
+		return "…", m.styles.placeholder
+	case !m.previewIsCurrent():
+		return m.preview, m.styles.placeholder
+	default:
+		return m.preview, m.styles.text
+	}
 }
 
 // Herdr writes the plugin's name on the popup frame, so the heading is only the
@@ -213,6 +244,39 @@ func (m Model) keyHints(room int) string {
 		width += needed
 	}
 	return line
+}
+
+// The keys are few enough here to name them all, and the last one is the way out.
+func (m Model) readingFooter(inner int) string {
+	hints := []string{
+		m.styles.key.Render("↑↓") + m.styles.hint.Render(" read"),
+		m.styles.key.Render("tab") + m.styles.hint.Render(" → write"),
+		m.styles.key.Render("alt+enter") + m.styles.hint.Render(" "+m.destination()),
+		m.styles.key.Render("esc") + m.styles.hint.Render(" back"),
+	}
+	return spread(" "+strings.Join(hints, m.styles.hint.Render(" · ")),
+		m.styles.badge.Render(m.howFar()), inner)
+}
+
+// howFar says where in the translation the reader is, since the bar shows it only
+// roughly.
+func (m Model) howFar() string {
+	rows, total := m.readingRows(), m.readingTotal()
+	if total <= rows {
+		return ""
+	}
+	return fmt.Sprintf("%d%%", min((m.readingFrom+rows)*100/total, 100))
+}
+
+// rowsFrom wraps text and keeps the rows from one onwards.
+func rowsFrom(text string, width, from, rows int) string {
+	if width < 1 || rows < 1 {
+		return text
+	}
+
+	lines := strings.Split(wrapped(text, width), "\n")
+	from = min(max(from, 0), max(len(lines)-1, 0))
+	return strings.Join(lines[from:min(from+rows, len(lines))], "\n")
 }
 
 // lastRows keeps the end of the text, where the newest writing is.

@@ -80,6 +80,7 @@ while you write, so one keybinding is enough.
 | `enter` | a new line, because a prompt is often more than one |
 | `ctrl+r` | switch between sending it and only filling the input |
 | `ctrl+l` | turn live translation on or off for this prompt |
+| `tab` | read the translation across the whole popup, and back |
 | `ctrl+u` | throw the draft away, as it clears a line in a shell |
 | `esc` | close — with vim bindings on, first to normal mode, then close |
 | `ctrl+c` | close, always |

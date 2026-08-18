@@ -7,6 +7,13 @@ the versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `tab` flips between writing and reading. Reading gives the translation the whole
+  popup, scrolled with `↑ ↓ PageUp PageDown` — or `j k g G` with vim bindings on —
+  and shows how far down it you are. Any letter, `tab` or `esc` goes back to the
+  draft, so it cannot be got stuck in.
+
 ### Fixed
 
 - Text no longer wraps twice. The draft box was two columns wider than what it

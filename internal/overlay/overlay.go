@@ -148,6 +148,11 @@ type Model struct {
 	// delivery can be changed while writing: sending or only typing is easier to
 	// choose once the English is there to read.
 	delivery promptflow.Delivery
+	// reading gives the whole popup to the translation. Three rows beside the draft
+	// are enough to glance at, not to read.
+	reading bool
+	// readingFrom is the first row of the translation on screen while reading.
+	readingFrom int
 	// resumed says the draft came from an earlier session, heldBackLive that this
 	// is why live translation is off.
 	resumed      bool
@@ -436,6 +441,13 @@ func (m Model) handleKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch {
 	case key.Type == tea.KeyCtrlC:
 		return m, tea.Quit
+
+	// Tab flips between writing and reading the translation.
+	case key.Type == tea.KeyTab:
+		return m.flipReading(), nil
+
+	case m.reading:
+		return m.readKey(key)
 
 	// Escape takes the message away. It must not also close the popup.
 	case key.Type == tea.KeyEsc && (m.notice != nil || m.hint != ""):

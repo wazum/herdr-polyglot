@@ -154,6 +154,28 @@ func TestALongDraftGetsAScrollbar(t *testing.T) {
 	}
 }
 
+// A bar is a column: every mark in the same place, whatever the text beside it.
+func TestTheBarIsAColumn(t *testing.T) {
+	pane := tea.WindowSizeMsg{Width: 87, Height: 15}
+	lines := laidOut(t, pane, "Bitte behebe den Test.",
+		"Short. "+strings.Repeat("A much longer sentence to fill the row. ", 12)+"End.")
+
+	columns := map[int]int{}
+	for _, line := range lines {
+		for _, mark := range []string{overlay.ScrollThumb, overlay.ScrollTrack} {
+			if at := strings.Index(line, mark); at >= 0 {
+				columns[lipgloss.Width(line[:at])]++
+			}
+		}
+	}
+	if len(columns) == 0 {
+		t.Fatal("no bar was drawn")
+	}
+	if len(columns) > 1 {
+		t.Errorf("the bar wanders between columns %v", columns)
+	}
+}
+
 // Rounding is where scrollbars go wrong: no thumb, all thumb, or a thumb that
 // never reaches the end.
 func TestTheBarSurvivesItsEdgeCases(t *testing.T) {
