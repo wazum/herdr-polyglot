@@ -26,6 +26,9 @@ const (
 	// A translated prompt is small; anything larger is a broken or hostile
 	// endpoint rather than a translation.
 	maxResponseBytes = 1 << 20
+	// DeepL refuses a request larger than 128 KiB, so say so here rather than
+	// send a draft across the network to be turned away.
+	maxRequestBytes = 128 << 10
 )
 
 type Client struct {
@@ -114,6 +117,10 @@ func (c *Client) TranslateWithContext(ctx context.Context, draft, surrounding st
 	})
 	if err != nil {
 		return "", fmt.Errorf("encoding request: %w", err)
+	}
+	if len(body) > maxRequestBytes {
+		return "", fmt.Errorf("draft is too long to translate: %d of %d bytes",
+			len(body), maxRequestBytes)
 	}
 
 	request, err := http.NewRequestWithContext(ctx, http.MethodPost, c.endpoint, bytes.NewReader(body))

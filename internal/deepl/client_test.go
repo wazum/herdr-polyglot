@@ -206,3 +206,25 @@ func TestARedirectToPlainHttpIsRefusedSoTheKeyStays(t *testing.T) {
 		t.Error("the key was sent to the redirect target")
 	}
 }
+
+// DeepL turns away a request over 128 KiB, so an enormous draft is worth saying
+// something about before it crosses the network.
+func TestADraftTooLongToTranslateIsRefusedBeforeItIsSent(t *testing.T) {
+	t.Parallel()
+	var reached bool
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		reached = true
+		w.WriteHeader(http.StatusOK)
+	}))
+	t.Cleanup(server.Close)
+
+	_, err := deepl.New("key-123", deepl.WithEndpoint(server.URL)).
+		Translate(context.Background(), strings.Repeat("sehr lang ", 20_000))
+
+	if err == nil {
+		t.Error("Translate sent an oversized draft, want it refused here")
+	}
+	if reached {
+		t.Error("the oversized draft was sent anyway")
+	}
+}
