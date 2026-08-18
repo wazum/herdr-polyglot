@@ -15,6 +15,7 @@ import (
 	"github.com/wazum/herdr-polyglot/internal/config"
 	"github.com/wazum/herdr-polyglot/internal/deepl"
 	"github.com/wazum/herdr-polyglot/internal/draft"
+	"github.com/wazum/herdr-polyglot/internal/google"
 	"github.com/wazum/herdr-polyglot/internal/herdr"
 	"github.com/wazum/herdr-polyglot/internal/overlay"
 	"github.com/wazum/herdr-polyglot/internal/promptflow"
@@ -49,6 +50,7 @@ func main() {
 func services() *translation.Registry {
 	return translation.NewRegistry(
 		deepl.Provider{},
+		google.Provider{},
 		translation.DryRunProvider{},
 	)
 }

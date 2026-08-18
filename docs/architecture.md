@@ -16,7 +16,7 @@ back to the same pane through the *herdr* CLI: `agent prompt` to send it, or
 | --- | --- |
 | `promptflow` | The use case: translate a draft, deliver a prompt. Owns nothing about terminals. |
 | `translation` | The `Translator` and `Provider` ports, the registry of services, and the sentence-level cache used for previews. |
-| `deepl` | One service behind those ports. |
+| `deepl`, `google` | Two services behind those ports. |
 | `herdr` | Talking to *herdr*: the CLI runner, the two delivery targets, the socket. |
 | `overlay` | The *Bubble Tea* program: the draft box, the header and footer, the keys. |
 | `vimarea` | A text area with modal editing, used by the overlay. |

@@ -87,7 +87,7 @@ off (`0`, `false`, `no`, `off`) is refused rather than guessed at.
 | Setting | Default | Meaning |
 | --- | --- | --- |
 | `HERDR_POLYGLOT_API_KEY` | none | Credentials for the translation service |
-| `HERDR_POLYGLOT_PROVIDER` | `deepl` | Which service: `deepl` or `dry-run` |
+| `HERDR_POLYGLOT_PROVIDER` | `deepl` | Which service: `deepl`, `google` or `dry-run` |
 | `HERDR_POLYGLOT_LANGUAGE` | `EN-US` | Target language |
 | `HERDR_POLYGLOT_ENDPOINT` | the service's own | Override the service endpoint |
 | `HERDR_POLYGLOT_SUBMIT` | `1` | `0` types the prompt without sending it |
@@ -101,7 +101,12 @@ off (`0`, `false`, `no`, `off`) is refused rather than guessed at.
 With `HERDR_POLYGLOT_PROVIDER=dry-run` the overlay marks the draft instead of
 translating it, so you can check the wiring without a key. To keep keys for
 several services side by side, scope them by name:
-`HERDR_POLYGLOT_DEEPL_API_KEY`.
+`HERDR_POLYGLOT_DEEPL_API_KEY`, `HERDR_POLYGLOT_GOOGLE_API_KEY`.
+
+*Google* takes the same language setting and needs the Cloud Translation API
+enabled for the key. It reports no monthly count, so the header shows none with
+it, and it has no unbilled context parameter — live translation still pays for
+each sentence once, but translates each on its own.
 
 ## What else it does
 

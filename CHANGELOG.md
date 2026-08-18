@@ -7,6 +7,13 @@ the versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- *Google Cloud Translation* as a second service, chosen with
+  `HERDR_POLYGLOT_PROVIDER=google` and a key in `HERDR_POLYGLOT_GOOGLE_API_KEY`.
+  The language setting is shared: `EN-US` reaches *DeepL* as it stands and
+  *Google* as `en`, and a region is kept only where the region is the point.
+
 ## [0.1.0] - 2026-08-18
 
 First release. Settings, keys and behaviour may still change while the plugin
