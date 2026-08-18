@@ -1,6 +1,7 @@
 package deepl_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"io"
@@ -10,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/wazum/herdr-polyglot/internal/deepl"
+	"github.com/wazum/herdr-polyglot/internal/translation"
 )
 
 type capturedRequest struct {
@@ -129,5 +131,53 @@ func TestTranslateSendsNoContextFieldWhenThereIsNone(t *testing.T) {
 
 	if _, present := captured.body["context"]; present {
 		t.Errorf("request carried a context field %v, want it omitted", captured.body["context"])
+	}
+}
+
+func TestAPlainHttpEndpointIsRefusedSoTheKeyIsNotSentInClear(t *testing.T) {
+	t.Parallel()
+
+	_, err := deepl.Provider{}.New(translation.Options{
+		APIKey:   "key-123",
+		Endpoint: "http://translate.example/v2",
+	})
+
+	if err == nil {
+		t.Fatal("New returned no error, want the plain-text endpoint refused")
+	}
+	if !strings.Contains(err.Error(), "https") {
+		t.Errorf("error %q does not explain that https is required", err)
+	}
+}
+
+func TestALocalHttpEndpointIsAllowedForTesting(t *testing.T) {
+	t.Parallel()
+
+	if _, err := (deepl.Provider{}).New(translation.Options{
+		APIKey:   "key-123",
+		Endpoint: "http://127.0.0.1:8080/v2",
+	}); err != nil {
+		t.Errorf("New refused a loopback endpoint: %v", err)
+	}
+}
+
+func TestAnEnormousResponseIsNotReadWithoutLimit(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"translations":[{"text":"`))
+		for range 4096 {
+			if _, err := w.Write(bytes.Repeat([]byte("A"), 1024)); err != nil {
+				return
+			}
+		}
+	}))
+	t.Cleanup(server.Close)
+
+	_, err := deepl.New("key-123", deepl.WithEndpoint(server.URL)).
+		Translate(context.Background(), "Bitte behebe es")
+
+	if err == nil {
+		t.Error("Translate accepted an unbounded response, want it cut off")
 	}
 }

@@ -23,6 +23,9 @@ const (
 	defaultTimeout        = 15 * time.Second
 
 	maxErrorBodyBytes = 2 << 10
+	// A translated prompt is small; anything larger is a broken or hostile
+	// endpoint rather than a translation.
+	maxResponseBytes = 1 << 20
 )
 
 type Client struct {
@@ -118,7 +121,7 @@ func (c *Client) TranslateWithContext(ctx context.Context, draft, surrounding st
 	}
 
 	var decoded translateResponse
-	if err := json.NewDecoder(response.Body).Decode(&decoded); err != nil {
+	if err := json.NewDecoder(io.LimitReader(response.Body, maxResponseBytes)).Decode(&decoded); err != nil {
 		return "", fmt.Errorf("decoding response: %w", err)
 	}
 	if len(decoded.Translations) == 0 {
