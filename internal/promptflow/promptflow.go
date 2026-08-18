@@ -11,7 +11,7 @@ import (
 	"github.com/wazum/herdr-polyglot/internal/translation"
 )
 
-var ErrBlankDraft = errors.New("draft is blank")
+var ErrBlankDraft = errors.New("nothing to translate — the draft is empty")
 
 type Translator interface {
 	Translate(ctx context.Context, draft string) (string, error)

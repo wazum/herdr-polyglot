@@ -38,7 +38,7 @@ func TestANoticeOffersEscapeRatherThanClosing(t *testing.T) {
 	model, _ = model.Update(overlay.BlankDraftRefused())
 
 	footer := lastLine(model.View())
-	if !strings.Contains(footer, "draft is blank") {
+	if !strings.Contains(footer, "nothing to translate — the draft is empty") {
 		t.Fatalf("the footer does not say what went wrong: %q", footer)
 	}
 	if !strings.Contains(footer, "esc dismiss") {
@@ -61,7 +61,7 @@ func TestANoticeGoesByItself(t *testing.T) {
 	}
 
 	model, _ = model.Update(linger())
-	if footer := lastLine(model.View()); strings.Contains(footer, "draft is blank") {
+	if footer := lastLine(model.View()); strings.Contains(footer, "nothing to translate — the draft is empty") {
 		t.Errorf("the notice is still there after its time: %q", footer)
 	}
 }
@@ -73,7 +73,7 @@ func TestEscapeTakesTheNoticeAwayWithoutClosingThePopup(t *testing.T) {
 	overlayUnderTest.Send(overlay.BlankDraftRefused())
 
 	teatest.WaitFor(t, overlayUnderTest.Output(), func(out []byte) bool {
-		return bytes.Contains(out, []byte("draft is blank"))
+		return bytes.Contains(out, []byte("nothing to translate — the draft is empty"))
 	}, teatest.WithDuration(2*time.Second))
 
 	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyEsc})
