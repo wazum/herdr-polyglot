@@ -8,9 +8,10 @@ description = "Write agent prompts in your own language and have them delivered 
 [[build]]
 command = ["bash", "herdr/install.sh"]
 
-# The overlay is launched by herdr/open.sh, which passes the invoking pane along as
-# HERDR_POLYGLOT_TARGET so the prompt lands where the keybinding was pressed. All
-# other settings come from the environment or the plugin's .env, never from argv.
+# `polyglot open` puts the overlay in a floating popup over the pane the keybinding
+# was pressed in and passes that pane along as HERDR_POLYGLOT_TARGET, so the prompt
+# lands where it was written. Everything else comes from the environment or the
+# plugin's .env, never from argv.
 [[panes]]
 id = "overlay"
 title = "polyglot"
@@ -21,10 +22,10 @@ command = ["sh", "-c", "exec \"$HERDR_PLUGIN_ROOT/bin/herdr-polyglot\""]
 id = "prompt"
 title = "polyglot: write and send a prompt"
 contexts = ["pane"]
-command = ["bash", "herdr/open.sh", "submit"]
+command = ["sh", "-c", "exec \"$HERDR_PLUGIN_ROOT/bin/herdr-polyglot\" open"]
 
 [[actions]]
 id = "compose"
 title = "polyglot: write a prompt, review before sending"
 contexts = ["pane"]
-command = ["bash", "herdr/open.sh", "compose"]
+command = ["sh", "-c", "exec \"$HERDR_PLUGIN_ROOT/bin/herdr-polyglot\" open --review"]

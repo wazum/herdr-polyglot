@@ -150,11 +150,15 @@ does paint the terminal palette, which is what the overlay draws with.
 
 ## How it works
 
-The keybinding runs an action that knows which pane you pressed it in, and opens
-the overlay above that pane with the pane id in its environment. On `ctrl+d` the
-draft goes to a translation service and the result is handed back to that same
-pane through the herdr CLI — `agent prompt` to send it, or `pane send-text` to
-type it without sending.
+The keybinding runs an action that knows which pane you pressed it in. It opens
+the draft box as a floating popup sized to exactly what the box needs, so the
+agent's output stays readable around it, and passes that pane id along in the
+environment. On `ctrl+d` the draft goes to a translation service and the result
+is handed back to the same pane through the herdr CLI — `agent prompt` to send
+it, or `pane send-text` to type it without sending.
+
+Sized popups are only reachable over herdr's socket API, not its CLI, so the
+plugin binary speaks that protocol itself for this one call.
 
 ## Another translation service
 

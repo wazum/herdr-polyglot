@@ -46,7 +46,27 @@ const (
 	draftHeight     = 6
 
 	defaultDebounce = 600 * time.Millisecond
+
+	// PopupBorder is the frame herdr draws around a popup pane.
+	PopupBorder = 2
+
+	dialogRows  = 12 // outer frame, heading, draft box and footer
+	englishRows = 5  // the pane holding the translation
+
+	// PopupWidth keeps the dialog to the width of a comfortable prompt; the
+	// dialog then fills the popup exactly, leaving no unused space.
+	PopupWidth = 90
 )
+
+// PopupHeight is how tall the popup must be for the dialog to fit without the
+// agent's output disappearing behind a pane larger than it needs to be.
+func PopupHeight(live bool) int {
+	height := dialogRows + PopupBorder
+	if live {
+		height += englishRows
+	}
+	return height
+}
 
 type Model struct {
 	// ctx spans the whole overlay session; Bubble Tea commands are plain
@@ -59,7 +79,6 @@ type Model struct {
 	stage    stage
 	failure  error
 	width    int
-	height   int
 
 	// preview holds the last translation and the draft it belongs to, so a
 	// prompt the author has read is delivered as it stands.
@@ -118,7 +137,6 @@ func (m Model) Init() tea.Cmd {
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		m.height = msg.Height
 		m.resize(msg.Width - 6)
 		return m, nil
 

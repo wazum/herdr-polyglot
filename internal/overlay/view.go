@@ -41,7 +41,8 @@ var (
 	englishBoxStyle = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(accent).
-			Padding(0, 1)
+			Padding(0, 1).
+			Height(englishRows - 2)
 )
 
 func (m Model) View() string {
@@ -54,11 +55,7 @@ func (m Model) View() string {
 	}
 	parts = append(parts, m.footer(line))
 
-	dialog := boxStyle.Render(lipgloss.JoinVertical(lipgloss.Left, parts...))
-	if m.height <= lipgloss.Height(dialog) {
-		return dialog
-	}
-	return lipgloss.Place(lipgloss.Width(dialog), m.height, lipgloss.Left, lipgloss.Center, dialog)
+	return boxStyle.Render(lipgloss.JoinVertical(lipgloss.Left, parts...))
 }
 
 // englishPane keeps the translation in view while the draft is written.

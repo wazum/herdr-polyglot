@@ -19,6 +19,14 @@ import (
 )
 
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "open" {
+		if err := runOpen(context.Background(), os.Args[2:]); err != nil {
+			fmt.Fprintln(os.Stderr, "herdr-polyglot:", err)
+			os.Exit(1)
+		}
+		return
+	}
+
 	if err := run(context.Background()); err != nil {
 		fmt.Fprintln(os.Stderr, "herdr-polyglot:", err)
 		os.Exit(1)

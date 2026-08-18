@@ -34,3 +34,22 @@ func TestTheOverlayPaintsWithTheTerminalPaletteOnly(t *testing.T) {
 		}
 	}
 }
+
+func TestThePopupIsTallEnoughForWhatItShows(t *testing.T) {
+	previous := lipgloss.ColorProfile()
+	lipgloss.SetColorProfile(termenv.Ascii)
+	defer lipgloss.SetColorProfile(previous)
+
+	for _, live := range []bool{false, true} {
+		flow := promptflow.New(stubTranslator{english: english}, &recordingTarget{})
+		var model tea.Model = overlay.New(context.Background(), flow, overlay.Options{
+			Service: "deepl", Language: "EN-US", Vim: true, Live: live,
+		})
+		model, _ = model.Update(tea.WindowSizeMsg{Width: 80, Height: overlay.PopupHeight(live)})
+
+		drawn := lipgloss.Height(model.View())
+		if available := overlay.PopupHeight(live) - overlay.PopupBorder; drawn > available {
+			t.Errorf("live=%v draws %d rows into %d available", live, drawn, available)
+		}
+	}
+}
