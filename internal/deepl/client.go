@@ -74,6 +74,8 @@ type translateRequest struct {
 	Text               []string `json:"text"`
 	TargetLang         string   `json:"target_lang"`
 	PreserveFormatting bool     `json:"preserve_formatting"`
+	// Context informs the translation without being translated or billed.
+	Context string `json:"context,omitempty"`
 }
 
 type translateResponse struct {
@@ -83,10 +85,15 @@ type translateResponse struct {
 }
 
 func (c *Client) Translate(ctx context.Context, draft string) (string, error) {
+	return c.TranslateWithContext(ctx, draft, "")
+}
+
+func (c *Client) TranslateWithContext(ctx context.Context, draft, surrounding string) (string, error) {
 	body, err := json.Marshal(translateRequest{
 		Text:               []string{draft},
 		TargetLang:         c.targetLanguage,
 		PreserveFormatting: true,
+		Context:            surrounding,
 	})
 	if err != nil {
 		return "", fmt.Errorf("encoding request: %w", err)

@@ -94,3 +94,40 @@ func TestFreeApiKeysUseTheFreeEndpoint(t *testing.T) {
 		t.Errorf("pro key resolved to %q, want the api host", endpoint)
 	}
 }
+
+func TestTranslateWithContextSendsTheSurroundingsUnbilled(t *testing.T) {
+	t.Parallel()
+	server, captured := serverReturning(t, http.StatusOK,
+		`{"translations":[{"text":"Second sentence!"}]}`)
+	client := deepl.New("key-123", deepl.WithEndpoint(server.URL))
+
+	translated, err := client.TranslateWithContext(
+		context.Background(), "Zweiter Satz!", "Erster Satz.")
+	if err != nil {
+		t.Fatalf("TranslateWithContext returned unexpected error: %v", err)
+	}
+	if translated != "Second sentence!" {
+		t.Errorf("returned %q, want the translated sentence", translated)
+	}
+	if got, ok := captured.body["text"].([]any); !ok || len(got) != 1 || got[0] != "Zweiter Satz!" {
+		t.Errorf("request translated %v, want only the sentence", captured.body["text"])
+	}
+	if captured.body["context"] != "Erster Satz." {
+		t.Errorf("request carried context %v, want the surrounding draft", captured.body["context"])
+	}
+}
+
+func TestTranslateSendsNoContextFieldWhenThereIsNone(t *testing.T) {
+	t.Parallel()
+	server, captured := serverReturning(t, http.StatusOK,
+		`{"translations":[{"text":"Please fix it"}]}`)
+	client := deepl.New("key-123", deepl.WithEndpoint(server.URL))
+
+	if _, err := client.Translate(context.Background(), "Bitte behebe es"); err != nil {
+		t.Fatalf("Translate returned unexpected error: %v", err)
+	}
+
+	if _, present := captured.body["context"]; present {
+		t.Errorf("request carried a context field %v, want it omitted", captured.body["context"])
+	}
+}

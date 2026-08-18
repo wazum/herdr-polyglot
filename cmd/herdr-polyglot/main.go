@@ -50,6 +50,11 @@ func run(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("%w; configure it in %s", err, settings.ConfigFile)
 	}
+	if settings.Live {
+		// Writing means translating the same draft again and again, so pay for
+		// each sentence once instead of for the whole draft every time.
+		translator = translation.Segmented(translator)
+	}
 
 	ctx, stopListening := signal.NotifyContext(ctx, os.Interrupt)
 	defer stopListening()
