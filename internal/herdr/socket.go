@@ -5,15 +5,37 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net"
+	"time"
+)
+
+const (
+	defaultTimeout = 5 * time.Second
+	// A reply is a small JSON object; more than this is a broken or hostile
+	// server, and reading it without a limit would exhaust memory.
+	maxReplyBytes = 1 << 20
 )
 
 // Socket talks to herdr's API directly. The CLI covers most of it, but sized
 // floating popups are only reachable over the socket.
-type Socket struct{ path string }
+type Socket struct {
+	path    string
+	timeout time.Duration
+}
 
-func NewSocket(path string) Socket {
-	return Socket{path: path}
+type SocketOption func(*Socket)
+
+func WithTimeout(timeout time.Duration) SocketOption {
+	return func(s *Socket) { s.timeout = timeout }
+}
+
+func NewSocket(path string, options ...SocketOption) Socket {
+	socket := Socket{path: path, timeout: defaultTimeout}
+	for _, option := range options {
+		option(&socket)
+	}
+	return socket
 }
 
 type Popup struct {
@@ -61,11 +83,22 @@ func (s Socket) OpenPopup(ctx context.Context, popup Popup) (string, error) {
 }
 
 func (s Socket) call(ctx context.Context, method string, params map[string]any) (json.RawMessage, error) {
+	ctx, cancel := context.WithTimeout(ctx, s.timeout)
+	defer cancel()
+
 	connection, err := (&net.Dialer{}).DialContext(ctx, "unix", s.path)
 	if err != nil {
 		return nil, fmt.Errorf("connecting to herdr: %w", err)
 	}
 	defer connection.Close()
+
+	// A herdr that accepts the connection but never answers must not wedge the
+	// keybinding that opened us.
+	if deadline, ok := ctx.Deadline(); ok {
+		if err := connection.SetDeadline(deadline); err != nil {
+			return nil, fmt.Errorf("setting the deadline for %s: %w", method, err)
+		}
+	}
 
 	request, err := json.Marshal(map[string]any{
 		"id":     "polyglot",
@@ -79,7 +112,8 @@ func (s Socket) call(ctx context.Context, method string, params map[string]any) 
 		return nil, fmt.Errorf("sending %s: %w", method, err)
 	}
 
-	line, err := bufio.NewReader(connection).ReadBytes('\n')
+	reader := bufio.NewReader(io.LimitReader(connection, maxReplyBytes))
+	line, err := reader.ReadBytes('\n')
 	if err != nil && len(line) == 0 {
 		return nil, fmt.Errorf("reading the reply to %s: %w", method, err)
 	}

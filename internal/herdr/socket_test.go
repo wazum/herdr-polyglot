@@ -2,6 +2,7 @@ package herdr_test
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"net"
@@ -10,6 +11,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/wazum/herdr-polyglot/internal/herdr"
 )
@@ -149,5 +151,88 @@ func TestOpeningAPopupWithoutASocketFails(t *testing.T) {
 
 	if err == nil {
 		t.Fatal("OpenPopup returned no error, want a complaint about the socket")
+	}
+}
+
+func TestASocketThatNeverAnswersDoesNotHangForever(t *testing.T) {
+	t.Parallel()
+	directory, err := os.MkdirTemp("/tmp", "pg")
+	if err != nil {
+		t.Fatalf("creating socket directory: %v", err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(directory) })
+
+	path := filepath.Join(directory, "s")
+	listener, err := (&net.ListenConfig{}).Listen(context.Background(), "unix", path)
+	if err != nil {
+		t.Fatalf("listening: %v", err)
+	}
+	t.Cleanup(func() { _ = listener.Close() })
+	go func() {
+		for {
+			connection, err := listener.Accept()
+			if err != nil {
+				return
+			}
+			// Accept and stay silent.
+			t.Cleanup(func() { _ = connection.Close() })
+		}
+	}()
+
+	done := make(chan error, 1)
+	go func() {
+		_, err := herdr.NewSocket(path, herdr.WithTimeout(150*time.Millisecond)).
+			OpenPopup(context.Background(), herdr.Popup{PluginID: "p", Entrypoint: "overlay"})
+		done <- err
+	}()
+
+	select {
+	case err := <-done:
+		if err == nil {
+			t.Error("OpenPopup succeeded against a silent socket, want a timeout")
+		}
+	case <-time.After(3 * time.Second):
+		t.Error("OpenPopup never returned, want it to give up")
+	}
+}
+
+func TestAFloodingSocketIsCutOff(t *testing.T) {
+	t.Parallel()
+	directory, err := os.MkdirTemp("/tmp", "pg")
+	if err != nil {
+		t.Fatalf("creating socket directory: %v", err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(directory) })
+
+	path := filepath.Join(directory, "s")
+	listener, err := (&net.ListenConfig{}).Listen(context.Background(), "unix", path)
+	if err != nil {
+		t.Fatalf("listening: %v", err)
+	}
+	t.Cleanup(func() { _ = listener.Close() })
+
+	flooding := make(chan struct{})
+	go func() {
+		connection, err := listener.Accept()
+		if err != nil {
+			return
+		}
+		defer connection.Close()
+		close(flooding)
+		// Bytes without ever sending the newline that ends a reply.
+		block := bytes.Repeat([]byte("A"), 64<<10)
+		for {
+			if _, err := connection.Write(block); err != nil {
+				return
+			}
+		}
+	}()
+
+	_, err = herdr.NewSocket(path, herdr.WithTimeout(2*time.Second)).
+		OpenPopup(context.Background(), herdr.Popup{PluginID: "p", Entrypoint: "overlay"})
+
+	<-flooding
+	if err == nil {
+		t.Error("OpenPopup read an endless reply, want it cut off")
 	}
 }
