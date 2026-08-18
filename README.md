@@ -39,12 +39,19 @@ into the plugin root.
 
 ## Configure
 
-Credentials live in the plugin's own config directory, which herdr can print:
+Credentials live in the plugin's own config directory, which herdr can print.
+Create the file so that only you can read it — a plain redirect leaves it
+readable by everyone on the machine:
 
 ```bash
-echo "HERDR_POLYGLOT_API_KEY=your-deepl-key" \
-  >> "$(herdr plugin config-dir wazum.polyglot)/.env"
+ENV_FILE="$(herdr plugin config-dir wazum.polyglot)/.env"
+touch "$ENV_FILE" && chmod 600 "$ENV_FILE"
+echo "HERDR_POLYGLOT_API_KEY=your-deepl-key" >> "$ENV_FILE"
 ```
+
+[DeepL's free tier](https://www.deepl.com/pro-api) covers 500,000 characters a
+month. Free keys end in `:fx`, and the plugin sends those to DeepL's free host
+by itself.
 
 | Setting | Meaning |
 | --- | --- |
@@ -140,6 +147,22 @@ Pasting works in either mode and in the middle of a draft: the text is inserted
 where the cursor is and you keep writing after it. In normal mode a paste is
 still text, never a sequence of commands, the way bracketed paste behaves in
 nvim.
+
+## What leaves your machine
+
+The draft is sent to the translation service, so treat it the way you treat
+anything you paste into a web translator. Prompts for a coding agent tend to
+carry file paths, code and occasionally a secret, and in live mode the draft
+goes out again after every pause in typing. Each sentence also travels with the
+text before it as context.
+
+Nothing else leaves: the API key goes to the translation service only, never to
+the agent, the herdr socket, a command line, or a child process. Translated text
+is stripped of control characters before it is typed into a pane, so neither a
+line break nor an escape sequence can reach the agent's terminal.
+
+Keep a draft off the network entirely with `HERDR_POLYGLOT_PROVIDER=dry-run`,
+which marks the text instead of translating it.
 
 ## Colours
 
