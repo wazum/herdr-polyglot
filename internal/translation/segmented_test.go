@@ -429,3 +429,32 @@ func (r *reportingSpy) Translate(_ context.Context, text string) (string, error)
 func (r *reportingSpy) Usage(context.Context) (translation.Usage, error) {
 	return r.spent, nil
 }
+
+// A sentence written, then finished by a newline, then followed by more writing
+// must be paid for once. It is kept in the tail slot while it is unfinished, and
+// that slot is taken by the next sentence being written.
+func TestSegmentedPaysOnceForASentenceThatBecomesFinished(t *testing.T) {
+	t.Parallel()
+	service := &spyTranslator{}
+	translator := translation.Segmented(service)
+
+	for _, draft := range []string{
+		"Erster Satz",
+		"Erster Satz\nZweiter Satz",
+		"Erster Satz\nZweiter Satz und mehr",
+	} {
+		if _, err := translator.Translate(context.Background(), draft); err != nil {
+			t.Fatalf("Translate(%q) returned unexpected error: %v", draft, err)
+		}
+	}
+
+	var first int
+	for _, sent := range service.sent() {
+		if strings.TrimSpace(sent) == "Erster Satz" {
+			first++
+		}
+	}
+	if first != 1 {
+		t.Errorf("the first sentence was sent %d times, want once: %q", first, service.sent())
+	}
+}

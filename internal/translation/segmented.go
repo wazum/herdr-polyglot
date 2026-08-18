@@ -102,7 +102,13 @@ type request struct {
 func (s *segmented) translateOnce(ctx context.Context, wanted request) (string, error) {
 	for {
 		s.mu.Lock()
-		if cached, found := s.cached(wanted.key); found {
+		if cached, found, fromTail := s.cached(wanted.key); found {
+			// The sentence was cached while it was still being written. Now that it
+			// is finished, it moves out of the one tail slot the next sentence is
+			// about to take, or it would have to be paid for again.
+			if fromTail && !wanted.asTail {
+				s.promoteTail(wanted.key, cached)
+			}
 			s.mu.Unlock()
 			return cached, nil
 		}
@@ -159,15 +165,22 @@ func (s *segmented) callTranslator(ctx context.Context, text, preceding string) 
 	return s.translator.Translate(ctx, text)
 }
 
-// cached expects the lock to be held.
-func (s *segmented) cached(key string) (string, bool) {
+// cached expects the lock to be held. The last result says the text came from the
+// tail slot, which only holds the sentence still being written.
+func (s *segmented) cached(key string) (translated string, found, beingWritten bool) {
 	if cached, found := s.known[key]; found {
-		return cached, true
+		return cached, true, false
 	}
 	if key == s.tailKey {
-		return s.tailText, true
+		return s.tailText, true, true
 	}
-	return "", false
+	return "", false, false
+}
+
+// promoteTail expects the lock to be held.
+func (s *segmented) promoteTail(key, translated string) {
+	s.keep(key, translated, false)
+	s.tailKey, s.tailText = "", ""
 }
 
 // keep expects the lock to be held.
