@@ -76,19 +76,23 @@ func Load(getenv func(string) string) (Settings, error) {
 	}
 
 	provider := lookup(providerVar)
+
+	// A setting that cannot be read is not quietly taken as off: a typo in
+	// HERDR_POLYGLOT_SUBMIT would otherwise send every prompt to the agent.
+	given := &reading{lookup: lookup}
 	settings := Settings{
 		Target:      lookup(targetVar),
 		Provider:    provider,
 		ConfigFile:  configFile,
 		StateDir:    getenv(stateDirVar),
 		HerdrBinary: orDefault(lookup(binaryVar), defaultBinary),
-		Submit:      !isDisabled(lookup(submitVar)),
-		Vim:         isEnabled(lookup(vimVar)),
-		Live:        isEnabled(lookup(liveVar)),
-		KeepDraft:   !isDisabled(lookup(keepDraftVar)),
-		Confirm:     isEnabled(lookup(confirmVar)),
-		Pulse:       !isDisabled(lookup(pulseVar)),
-		MaxDraft:    wholeNumber(lookup(maxDraftVar)),
+		Submit:      given.flag(submitVar, true),
+		Vim:         given.flag(vimVar, false),
+		Live:        given.flag(liveVar, false),
+		KeepDraft:   given.flag(keepDraftVar, true),
+		Confirm:     given.flag(confirmVar, false),
+		Pulse:       given.flag(pulseVar, true),
+		MaxDraft:    given.number(maxDraftVar),
 		Options: translation.Options{
 			APIKey:         orDefault(lookup(scopedKeyVar(provider)), lookup(apiKeyVar)),
 			TargetLanguage: orDefault(lookup(languageVar), defaultLanguage),
@@ -96,10 +100,56 @@ func Load(getenv func(string) string) (Settings, error) {
 		},
 	}
 
+	if given.err != nil {
+		return Settings{}, given.err
+	}
 	if settings.Target == "" {
 		return Settings{}, fmt.Errorf("no target pane: %s is not set", targetVar)
 	}
 	return settings, nil
+}
+
+// reading takes the settings apart, keeping the first value it could not make
+// sense of so that Load can refuse it.
+type reading struct {
+	lookup func(string) string
+	err    error
+}
+
+func (r *reading) flag(variable string, whenUnset bool) bool {
+	value := strings.TrimSpace(r.lookup(variable))
+	switch strings.ToLower(value) {
+	case "":
+		return whenUnset
+	case "1", "true", "yes", "on":
+		return true
+	case "0", "false", "no", "off":
+		return false
+	default:
+		r.refuse(variable, value, "neither on (1, true, yes, on) nor off (0, false, no, off)")
+		return whenUnset
+	}
+}
+
+// A zero means no number was given and the overlay picks its own.
+func (r *reading) number(variable string) int {
+	value := strings.TrimSpace(r.lookup(variable))
+	if value == "" {
+		return 0
+	}
+
+	number, err := strconv.Atoi(value)
+	if err != nil || number < 0 {
+		r.refuse(variable, value, "not a whole number of characters")
+		return 0
+	}
+	return number
+}
+
+func (r *reading) refuse(variable, value, why string) {
+	if r.err == nil {
+		r.err = fmt.Errorf("%s is %q, which is %s", variable, value, why)
+	}
 }
 
 // Scoping the key by service lets several services be configured side by side.
@@ -111,37 +161,11 @@ func scopedKeyVar(provider string) string {
 	return "HERDR_POLYGLOT_" + scope + "_API_KEY"
 }
 
-func wholeNumber(value string) int {
-	number, err := strconv.Atoi(strings.TrimSpace(value))
-	if err != nil || number < 0 {
-		return 0
-	}
-	return number
-}
-
 func orDefault(value, fallback string) string {
 	if value == "" {
 		return fallback
 	}
 	return value
-}
-
-func isEnabled(value string) bool {
-	switch strings.ToLower(value) {
-	case "1", "true", "yes", "on":
-		return true
-	default:
-		return false
-	}
-}
-
-func isDisabled(value string) bool {
-	switch strings.ToLower(value) {
-	case "0", "false", "no", "off":
-		return true
-	default:
-		return false
-	}
 }
 
 // readDotenv parses KEY=VALUE lines, ignoring comments and blanks. A missing

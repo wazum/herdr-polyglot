@@ -317,3 +317,44 @@ func TestThePulseIsOnUnlessTurnedOff(t *testing.T) {
 		t.Error("Pulse is true, want it turned off by HERDR_POLYGLOT_PULSE=0")
 	}
 }
+
+// A setting nobody can read is a setting nobody can trust: HERDR_POLYGLOT_SUBMIT=flase
+// would otherwise send every prompt straight to the agent.
+func TestAValueThatIsNeitherOnNorOffIsRefused(t *testing.T) {
+	t.Parallel()
+
+	for _, variable := range []string{
+		"HERDR_POLYGLOT_SUBMIT",
+		"HERDR_POLYGLOT_VIM",
+		"HERDR_POLYGLOT_LIVE",
+		"HERDR_POLYGLOT_CONFIRM",
+		"HERDR_POLYGLOT_KEEP_DRAFT",
+		"HERDR_POLYGLOT_PULSE",
+	} {
+		environment := map[string]string{
+			"HERDR_POLYGLOT_TARGET": "w1:p1",
+			variable:                "flase",
+		}
+
+		_, err := config.Load(envFrom(environment))
+		if err == nil {
+			t.Errorf("%s=flase was accepted, want it refused", variable)
+			continue
+		}
+		if !strings.Contains(err.Error(), variable) {
+			t.Errorf("%s=flase failed with %v, want the variable named", variable, err)
+		}
+	}
+}
+
+func TestADraftLimitThatIsNotANumberIsRefused(t *testing.T) {
+	t.Parallel()
+
+	_, err := config.Load(envFrom(map[string]string{
+		"HERDR_POLYGLOT_TARGET":    "w1:p1",
+		"HERDR_POLYGLOT_MAX_DRAFT": "zweitausend",
+	}))
+	if err == nil || !strings.Contains(err.Error(), "HERDR_POLYGLOT_MAX_DRAFT") {
+		t.Errorf("Load returned %v, want the unreadable draft limit refused by name", err)
+	}
+}
