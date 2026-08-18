@@ -116,17 +116,17 @@ header says which it will be.
 When something did not work — a blank draft, a service that says no — the footer
 says so, `esc` takes the message away, and it goes by itself after a few seconds.
 
-The header says what `ctrl+d` will do: `sends to agent` hands the prompt over and
-the agent starts working, `fills the input` only types it there and leaves the
-final keystroke to you.
+The header says what `alt+enter` will do: `sends to agent` hands the prompt over
+and the agent starts working, `fills the input` only types it there and leaves
+the final keystroke to you.
 
 With vim bindings on, `esc` goes to normal mode and a second `esc` closes. Nothing
 is lost either way, because the draft is kept.
 
 ## An unfinished prompt is kept
 
-Closing the popup does not lose the draft, however it closes — `esc`, `q`,
-`ctrl+c`, or herdr taking the popup away. It is written to the plugin's own state
+Closing the popup does not lose the draft, however it closes — `esc`, `ctrl+c`, or
+herdr taking the popup away. It is written to the plugin's own state
 directory, one file per pane, readable only by you, and comes back the next time
 you open the popup there — the header says `resumed` until you type, and `ctrl+u`
 throws it away. A sent prompt is forgotten immediately.
@@ -177,6 +177,11 @@ newer one always wins over a slower older one.
 
 The circle beside `live` fills and empties while a translation is on its way, so
 you can see it working without watching the text.
+
+A draft that comes back from an earlier session arrives with live translation off,
+whatever the setting says, and the footer says so: yesterday's draft is paid for
+by the character like any other, and it might be a cat on the keyboard. `ctrl+l`
+turns it on when the draft is worth translating.
 
 A draft longer than 2,000 characters stops being translated as you write, and the
 box says so: this is a place for prompts you write, not files you paste. Sending

@@ -119,8 +119,10 @@ type Model struct {
 	stage    stage
 	// failure is a broken way out, so it stays on screen.
 	failure error
-	// notice is something that did not work. It goes by itself; escape is quicker.
+	// notice is something that did not work, hint something worth knowing. Both go
+	// by themselves; escape is quicker.
 	notice  error
+	hint    string
 	notices int
 	width   int
 
@@ -138,8 +140,10 @@ type Model struct {
 	// delivery can be changed while writing: sending or only typing is easier to
 	// choose once the English is there to read.
 	delivery promptflow.Delivery
-	// resumed says the draft came from an earlier session.
-	resumed bool
+	// resumed says the draft came from an earlier session, heldBackLive that this
+	// is why live translation is off.
+	resumed      bool
+	heldBackLive bool
 	// delivered says the agent has the prompt, so there is nothing left to keep.
 	delivered       bool
 	spent           translation.Usage
@@ -188,6 +192,11 @@ func New(ctx context.Context, prompter Prompter, options Options) Model {
 		if kept := options.Drafts.Load(); kept != "" {
 			model.draft.Resume(kept)
 			model.resumed = true
+			// Whatever came back is paid for by the character if it is translated,
+			// so it is not, until ctrl+l says so.
+			model.heldBackLive = options.Live
+			model.options.Live = false
+			model.resize(maxContentWidth)
 		}
 	}
 	return model
@@ -197,6 +206,7 @@ type (
 	promptSentMsg   struct{}
 	blankDraftMsg   struct{}
 	submitFailedMsg struct{ err error }
+	hintMsg         struct{ what string }
 	// shown names the notice this timer belongs to, so a newer one stays up.
 	noticeExpiredMsg struct{ shown int }
 
@@ -220,8 +230,8 @@ func (m Model) Init() tea.Cmd {
 	// The allowance is asked for after the box is already on screen, so nothing
 	// waits for the network.
 	started := []tea.Cmd{textarea.Blink, m.askUsage()}
-	if m.resumed && m.options.Live {
-		started = append(started, m.schedulePreview())
+	if m.heldBackLive {
+		started = append(started, hint("resumed draft, so live is off — ctrl+l translates it"))
 	}
 	return tea.Batch(started...)
 }
@@ -269,9 +279,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case submitFailedMsg:
 		return m.raiseNotice(msg.err)
 
+	case hintMsg:
+		m.hint = msg.what
+		ticking := m.startNoticeClock()
+		return m, ticking
+
 	case noticeExpiredMsg:
 		if msg.shown == m.notices {
-			m.notice = nil
+			m.notice, m.hint = nil, ""
 		}
 		return m, nil
 
@@ -319,10 +334,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m Model) raiseNotice(why error) (tea.Model, tea.Cmd) {
 	m.stage = composing
 	m.notice = why
-	m.notices++
+	ticking := m.startNoticeClock()
+	return m, ticking
+}
 
+func hint(what string) tea.Cmd {
+	return func() tea.Msg { return hintMsg{what: what} }
+}
+
+func (m *Model) startNoticeClock() tea.Cmd {
+	m.notices++
 	shown := m.notices
-	return m, tea.Tick(m.options.NoticeLinger, func(time.Time) tea.Msg {
+	return tea.Tick(m.options.NoticeLinger, func(time.Time) tea.Msg {
 		return noticeExpiredMsg{shown: shown}
 	})
 }
@@ -396,8 +419,8 @@ func (m Model) handleKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, tea.Quit
 
 	// Escape takes the message away. It must not also close the popup.
-	case key.Type == tea.KeyEsc && m.notice != nil:
-		m.notice = nil
+	case key.Type == tea.KeyEsc && (m.notice != nil || m.hint != ""):
+		m.notice, m.hint = nil, ""
 		return m, nil
 
 	case key.Type == tea.KeyEsc && m.stage == confirming:
@@ -441,7 +464,7 @@ func (m Model) handleKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 	}
 
-	m.failure, m.notice = nil, nil
+	m.failure, m.notice, m.hint = nil, nil, ""
 	before := m.draft.Value()
 
 	var cmd tea.Cmd

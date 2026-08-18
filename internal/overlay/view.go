@@ -127,6 +127,9 @@ func (m Model) footer(line int) string {
 	case m.notice != nil:
 		return spread(" "+m.styles.danger.Render("✗ "+m.notice.Error()),
 			m.styles.key.Render("esc")+m.styles.hint.Render(" dismiss"), inner)
+	case m.hint != "":
+		return spread(" "+m.styles.badge.Render(m.hint),
+			m.styles.key.Render("esc")+m.styles.hint.Render(" dismiss"), inner)
 	case m.draftIsTooLong():
 		return spread(
 			" "+m.styles.danger.Render(fmt.Sprintf("⚠ %d characters", len([]rune(m.draft.Value()))))+

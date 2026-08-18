@@ -667,9 +667,9 @@ func TestAKeptDraftIsThereAgainWhenTheOverlayOpens(t *testing.T) {
 	}, teatest.WithDuration(2*time.Second))
 
 	// Typing continues after the kept text rather than in front of it.
-	overlayUnderTest.Type(" gruendlich")
+	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(" gründlich")})
 	teatest.WaitFor(t, overlayUnderTest.Output(), func(out []byte) bool {
-		return bytes.Contains(out, []byte("Test gruendlich"))
+		return bytes.Contains(out, []byte("Test gründlich"))
 	}, teatest.WithDuration(2*time.Second))
 
 	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyCtrlC})
@@ -733,18 +733,34 @@ func TestADraftThatCannotBeKeptIsNotSilentlyLost(t *testing.T) {
 	overlayUnderTest.WaitFinished(t, teatest.WithFinalTimeout(2*time.Second))
 }
 
-// A draft that comes back is waiting to be worked on, so live mode translates it
-// without waiting for a keystroke.
-func TestALiveOverlayTranslatesAResumedDraftAtOnce(t *testing.T) {
+// Services charge by the character, and a draft that comes back may be anything —
+// yesterday's thought, or a cat on the keyboard. Live translation starts off, so
+// resuming costs nothing until ctrl+l asks for it.
+func TestAResumedDraftArrivesWithLiveTranslationOff(t *testing.T) {
 	t.Parallel()
+	translator := &countingTranslator{english: english}
 	drafts := &fakeDrafts{kept: "Bitte behebe den Test"}
 
-	overlayUnderTest := newOverlayWith(t, stubTranslator{english: english}, &recordingTarget{},
+	overlayUnderTest := newOverlayWith(t, translator, &recordingTarget{},
 		overlay.Options{
 			Service: "deepl", Language: "EN-US", Live: true,
 			Debounce: 10 * time.Millisecond, Drafts: drafts,
 		})
 
+	// Live translation turning itself off is worth saying, or it looks broken.
+	teatest.WaitFor(t, overlayUnderTest.Output(), func(out []byte) bool {
+		return bytes.Contains(out, []byte("Bitte behebe den Test")) &&
+			bytes.Contains(out, []byte("translates it"))
+	}, teatest.WithDuration(2*time.Second))
+
+	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(" gründlich")})
+	time.Sleep(300 * time.Millisecond)
+
+	if calls := translator.count(); calls != 0 {
+		t.Errorf("the service was asked %d times for a draft that came back", calls)
+	}
+
+	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyCtrlL})
 	teatest.WaitFor(t, overlayUnderTest.Output(), func(out []byte) bool {
 		return bytes.Contains(out, []byte(english))
 	}, teatest.WithDuration(2*time.Second))
