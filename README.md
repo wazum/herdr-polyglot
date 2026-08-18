@@ -141,6 +141,13 @@ where the cursor is and you keep writing after it. In normal mode a paste is
 still text, never a sequence of commands, the way bracketed paste behaves in
 nvim.
 
+## Colours
+
+The overlay names palette slots rather than fixed colours, so it takes on
+whatever herdr theme is active — nord looks like nord, gruvbox like gruvbox —
+including a light terminal. Herdr does not expose the theme to plugins, but it
+does paint the terminal palette, which is what the overlay draws with.
+
 ## How it works
 
 The keybinding runs an action that knows which pane you pressed it in, and opens

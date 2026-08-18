@@ -8,17 +8,17 @@ import (
 	"github.com/wazum/herdr-polyglot/internal/vimarea"
 )
 
-// The palette is adaptive so the overlay sits well on light and dark terminals.
+// Herdr paints the terminal palette from the active theme but does not expose
+// the theme itself, so the overlay only names palette slots and lets whatever
+// theme is running decide how they look.
 var (
-	accent = lipgloss.AdaptiveColor{Light: "#6C3EF5", Dark: "#B79BFF"}
-	muted  = lipgloss.AdaptiveColor{Light: "#6B7280", Dark: "#8A8FA3"}
-	danger = lipgloss.AdaptiveColor{Light: "#B3261E", Dark: "#FF8A80"}
-	frame  = lipgloss.AdaptiveColor{Light: "#C9C4E0", Dark: "#4A4566"}
-
-	text = lipgloss.AdaptiveColor{Light: "#1F2430", Dark: "#E6E6F0"}
+	accent = lipgloss.Color("5")
+	muted  = lipgloss.Color("8")
+	danger = lipgloss.Color("1")
+	frame  = lipgloss.Color("8")
 
 	accentStyle      = lipgloss.NewStyle().Foreground(accent)
-	textStyle        = lipgloss.NewStyle().Foreground(text)
+	textStyle        = lipgloss.NewStyle()
 	placeholderStyle = lipgloss.NewStyle().Foreground(muted)
 	cursorStyle      = lipgloss.NewStyle().Foreground(accent)
 	titleStyle       = lipgloss.NewStyle().Foreground(accent).Bold(true)
