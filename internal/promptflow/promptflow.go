@@ -5,6 +5,7 @@ package promptflow
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/wazum/herdr-polyglot/internal/translation"
@@ -20,21 +21,33 @@ type Target interface {
 	Insert(ctx context.Context, text string) error
 }
 
+// Delivery is how a finished prompt reaches the agent: handed over and sent, or
+// only typed into its input for the author to send.
+type Delivery int
+
+const (
+	Sending Delivery = iota
+	Typing
+)
+
 type Flow struct {
 	translator Translator
-	target     Target
+	targets    map[Delivery]Target
 }
 
-func New(translator Translator, target Target) *Flow {
-	return &Flow{translator: translator, target: target}
+func New(translator Translator, sending, typing Target) *Flow {
+	return &Flow{
+		translator: translator,
+		targets:    map[Delivery]Target{Sending: sending, Typing: typing},
+	}
 }
 
-func (f *Flow) Submit(ctx context.Context, draft string) (string, error) {
+func (f *Flow) Submit(ctx context.Context, draft string, how Delivery) (string, error) {
 	translated, err := f.Translate(ctx, draft)
 	if err != nil {
 		return "", err
 	}
-	if err := f.Deliver(ctx, translated); err != nil {
+	if err := f.Deliver(ctx, translated, how); err != nil {
 		return "", err
 	}
 	return translated, nil
@@ -70,10 +83,22 @@ func (f *Flow) Usage(ctx context.Context) (translation.Usage, bool, error) {
 
 // Deliver hands over text that has already been translated, so a prompt the
 // author has seen is not translated a second time on its way out.
-func (f *Flow) Deliver(ctx context.Context, text string) error {
+func (f *Flow) Deliver(ctx context.Context, text string, how Delivery) error {
 	prompt := plainText(text)
 	if prompt == "" {
 		return ErrBlankDraft
 	}
-	return f.target.Insert(ctx, prompt)
+
+	target, known := f.targets[how]
+	if !known {
+		return fmt.Errorf("no way to deliver a prompt as %v", how)
+	}
+	return target.Insert(ctx, prompt)
+}
+
+func (d Delivery) String() string {
+	if d == Typing {
+		return "typing"
+	}
+	return "sending"
 }

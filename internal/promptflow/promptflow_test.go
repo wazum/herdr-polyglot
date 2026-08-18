@@ -32,8 +32,8 @@ func TestSubmitTranslatesTheDraftAndInsertsTheResultIntoTheTarget(t *testing.T) 
 	translator := &stubTranslator{english: "Please fix the failing test"}
 	target := &recordingTarget{}
 
-	translated, err := promptflow.New(translator, target).
-		Submit(context.Background(), "Bitte behebe den fehlschlagenden Test")
+	translated, err := promptflow.New(translator, target, target).
+		Submit(context.Background(), "Bitte behebe den fehlschlagenden Test", promptflow.Sending)
 	if err != nil {
 		t.Fatalf("Submit returned unexpected error: %v", err)
 	}
@@ -52,8 +52,8 @@ func TestSubmitLeavesTheTargetUntouchedWhenTranslationFails(t *testing.T) {
 	translationFailure := errors.New("deepl unreachable")
 	target := &recordingTarget{}
 
-	_, err := promptflow.New(&stubTranslator{err: translationFailure}, target).
-		Submit(context.Background(), "Bitte behebe den fehlschlagenden Test")
+	_, err := promptflow.New(&stubTranslator{err: translationFailure}, target, target).
+		Submit(context.Background(), "Bitte behebe den fehlschlagenden Test", promptflow.Sending)
 
 	if !errors.Is(err, translationFailure) {
 		t.Errorf("Submit returned error %v, want the translation failure", err)
@@ -67,7 +67,7 @@ func TestSubmitRejectsABlankDraftWithoutCallingTheTranslator(t *testing.T) {
 	translator := &stubTranslator{english: "unused"}
 	target := &recordingTarget{}
 
-	_, err := promptflow.New(translator, target).Submit(context.Background(), "   \n\t ")
+	_, err := promptflow.New(translator, target, target).Submit(context.Background(), "   \n\t ", promptflow.Sending)
 
 	if !errors.Is(err, promptflow.ErrBlankDraft) {
 		t.Errorf("Submit returned error %v, want ErrBlankDraft", err)
@@ -84,7 +84,7 @@ func TestTranslateReturnsTheEnglishWithoutTouchingTheTarget(t *testing.T) {
 	translator := &stubTranslator{english: "Please fix the failing test"}
 	target := &recordingTarget{}
 
-	translated, err := promptflow.New(translator, target).
+	translated, err := promptflow.New(translator, target, target).
 		Translate(context.Background(), "Bitte behebe den fehlschlagenden Test")
 	if err != nil {
 		t.Fatalf("Translate returned unexpected error: %v", err)
@@ -100,7 +100,7 @@ func TestTranslateReturnsTheEnglishWithoutTouchingTheTarget(t *testing.T) {
 func TestTranslateRejectsABlankDraft(t *testing.T) {
 	translator := &stubTranslator{english: "unused"}
 
-	_, err := promptflow.New(translator, &recordingTarget{}).Translate(context.Background(), "  ")
+	_, err := promptflow.New(translator, &recordingTarget{}, &recordingTarget{}).Translate(context.Background(), "  ")
 
 	if !errors.Is(err, promptflow.ErrBlankDraft) {
 		t.Errorf("Translate returned %v, want ErrBlankDraft", err)
@@ -114,8 +114,8 @@ func TestDeliverSendsAlreadyTranslatedTextWithoutTranslatingAgain(t *testing.T) 
 	translator := &stubTranslator{english: "unused"}
 	target := &recordingTarget{}
 
-	err := promptflow.New(translator, target).
-		Deliver(context.Background(), "Please fix the failing test")
+	err := promptflow.New(translator, target, target).
+		Deliver(context.Background(), "Please fix the failing test", promptflow.Sending)
 	if err != nil {
 		t.Fatalf("Deliver returned unexpected error: %v", err)
 	}
@@ -130,9 +130,10 @@ func TestDeliverSendsAlreadyTranslatedTextWithoutTranslatingAgain(t *testing.T) 
 func TestDeliverKeepsControlCharactersOutOfTheAgentsTerminal(t *testing.T) {
 	target := &recordingTarget{}
 
-	err := promptflow.New(&stubTranslator{}, target).Deliver(
+	err := promptflow.New(&stubTranslator{}, target, target).Deliver(
 		context.Background(),
 		"fix the bug\x1b]0;title\x07 and \x1b[31mred\x00 now",
+		promptflow.Sending,
 	)
 	if err != nil {
 		t.Fatalf("Deliver returned unexpected error: %v", err)
@@ -154,8 +155,8 @@ func TestDeliverKeepsControlCharactersOutOfTheAgentsTerminal(t *testing.T) {
 func TestDeliverKeepsAMultiLinePromptOnOneLine(t *testing.T) {
 	target := &recordingTarget{}
 
-	err := promptflow.New(&stubTranslator{}, target).
-		Deliver(context.Background(), "first line\nsecond line\r\nthird")
+	err := promptflow.New(&stubTranslator{}, target, target).
+		Deliver(context.Background(), "first line\nsecond line\r\nthird", promptflow.Sending)
 	if err != nil {
 		t.Fatalf("Deliver returned unexpected error: %v", err)
 	}
@@ -174,7 +175,7 @@ func TestTranslateIsNotMangledForReading(t *testing.T) {
 
 	// The preview is read by a person, so its shape is kept; only what goes to
 	// the agent is flattened.
-	translated, err := promptflow.New(translator, &recordingTarget{}).
+	translated, err := promptflow.New(translator, &recordingTarget{}, &recordingTarget{}).
 		Translate(context.Background(), "Zeile eins\nZeile zwei")
 	if err != nil {
 		t.Fatalf("Translate returned unexpected error: %v", err)
@@ -190,7 +191,7 @@ func TestTranslateIsNotMangledForReading(t *testing.T) {
 func TestTranslateStripsControlCharactersButKeepsLineBreaks(t *testing.T) {
 	translator := &stubTranslator{english: "fix it\x1b]0;stolen title\x07 now\nsecond line\x00"}
 
-	translated, err := promptflow.New(translator, &recordingTarget{}).
+	translated, err := promptflow.New(translator, &recordingTarget{}, &recordingTarget{}).
 		Translate(context.Background(), "Behebe es")
 	if err != nil {
 		t.Fatalf("Translate returned unexpected error: %v", err)
@@ -220,7 +221,7 @@ func (r *reportingTranslator) Usage(context.Context) (translation.Usage, error) 
 func TestUsageComesFromTheServiceWhenItKeepsCount(t *testing.T) {
 	translator := &reportingTranslator{spent: translation.Usage{Used: 1234, Limit: 500000}}
 
-	spent, reported, err := promptflow.New(translator, &recordingTarget{}).
+	spent, reported, err := promptflow.New(translator, &recordingTarget{}, &recordingTarget{}).
 		Usage(context.Background())
 	if err != nil {
 		t.Fatalf("Usage returned unexpected error: %v", err)
@@ -234,7 +235,7 @@ func TestUsageComesFromTheServiceWhenItKeepsCount(t *testing.T) {
 }
 
 func TestAServiceThatKeepsNoCountSaysSo(t *testing.T) {
-	_, reported, err := promptflow.New(&stubTranslator{}, &recordingTarget{}).
+	_, reported, err := promptflow.New(&stubTranslator{}, &recordingTarget{}, &recordingTarget{}).
 		Usage(context.Background())
 	if err != nil {
 		t.Fatalf("Usage returned unexpected error: %v", err)
@@ -248,7 +249,8 @@ func TestAServiceThatKeepsNoCountSaysSo(t *testing.T) {
 func TestUsageIsFoundThroughAWrappedService(t *testing.T) {
 	translator := &reportingTranslator{spent: translation.Usage{Used: 4321, Limit: 1_000_000}}
 
-	spent, reported, err := promptflow.New(translation.Segmented(translator), &recordingTarget{}).
+	target := &recordingTarget{}
+	spent, reported, err := promptflow.New(translation.Segmented(translator), target, target).
 		Usage(context.Background())
 	if err != nil {
 		t.Fatalf("Usage returned unexpected error: %v", err)
