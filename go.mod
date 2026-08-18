@@ -3,6 +3,7 @@ module github.com/wazum/herdr-deepl-prompt
 go 1.26.4
 
 require (
+	github.com/atotto/clipboard v0.1.4 // indirect
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
 	github.com/aymanbagabas/go-udiff v0.3.1 // indirect
 	github.com/charmbracelet/bubbles v1.0.0 // indirect
