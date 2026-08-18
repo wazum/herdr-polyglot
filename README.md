@@ -48,6 +48,7 @@ echo "HERDR_POLYGLOT_API_KEY=your-deepl-key" \
 | `HERDR_POLYGLOT_ENDPOINT` | Override the service endpoint |
 | `HERDR_POLYGLOT_SUBMIT` | `0` types the prompt without sending it |
 | `HERDR_POLYGLOT_VIM` | `1` turns on the vim bindings described below |
+| `HERDR_POLYGLOT_LIVE` | `1` translates while you write, see below |
 
 Every setting can also be passed as an environment variable, which wins over
 the `.env` file. With `HERDR_POLYGLOT_PROVIDER=dry-run` the overlay marks the
@@ -76,6 +77,38 @@ description = "write a prompt, review before sending"
 
 `prompt` sends the translated prompt straight to the agent. `compose` types it
 into the agent's input and leaves the final keystroke to you.
+
+## Live translation
+
+Off by default: the draft is translated once, when you send it. With
+`HERDR_POLYGLOT_LIVE=1` the English appears in a second pane and follows what
+you write, roughly 600ms after you stop typing.
+
+```
+╭────────────────────────────────────────────────╮
+│ ✳ polyglot        deepl → EN-US · live · send  │
+│ ╭────────────────────────────────────────────╮ │
+│ │ Bitte behebe den fehlschlagenden Test      │ │
+│ ╰────────────────────────────────────────────╯ │
+│ ╭────────────────────────────────────────────╮ │
+│ │ Please fix the failing test                │ │
+│ ╰────────────────────────────────────────────╯ │
+│ INSERT  ctrl+d send · esc normal               │
+╰────────────────────────────────────────────────╯
+```
+
+Translating on every pause would mean paying for the whole draft again and
+again, so live mode does two things about it. The draft is split into sentences
+and each one is translated once — while you write the fourth sentence, the first
+three are already known and cost nothing. And every sentence is sent with the
+rest of the draft as [context](https://developers.deepl.com/docs/api-reference/translate),
+which informs the translation without being billed, so a sentence is not
+translated in isolation.
+
+Sending costs nothing extra either: if the English on screen belongs to the
+draft as it stands, that text is delivered as it is. A translation you have read
+is never paid for twice. While a preview is out of date it is dimmed, and a
+newer one always wins over a slower older one.
 
 ## Vim bindings
 
