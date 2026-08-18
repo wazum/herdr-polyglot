@@ -7,6 +7,9 @@ on:
   push:
     branches: ['**']
   pull_request:
+  # So a run can be started without inventing a commit — the badge needs a run on
+  # main to report, and runs can be deleted.
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
