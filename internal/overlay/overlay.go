@@ -164,7 +164,7 @@ func New(ctx context.Context, prompter Prompter, options Options) Model {
 
 	draft := vimarea.New(
 		vimarea.WithVim(options.Vim),
-		vimarea.WithPlaceholder("Your prompt, in your own language …"),
+		vimarea.WithPlaceholder("Write your prompt in your own language …"),
 		vimarea.WithStyles(look.text, look.placeholder, look.cursor),
 	)
 	draft.SetHeight(draftHeight)

@@ -11,18 +11,7 @@ English translation lands in the agent's input. It works with Claude Code, Codex
 opencode and the rest, because the prompt goes through herdr rather than into a
 particular tool.
 
-```
-╭────────────────────────────────────────────────────────────╮
-│ deepl → EN-US · ● live · sends to agent · 12.3k/1M chars   │
-│ ╭────────────────────────────────────────────────────────╮ │
-│ │ Bitte behebe den fehlschlagenden Test im Formular      │ │
-│ ╰────────────────────────────────────────────────────────╯ │
-│ ╭────────────────────────────────────────────────────────╮ │
-│ │ Please fix the failing test in the form                │ │
-│ ╰────────────────────────────────────────────────────────╯ │
-│ alt+enter send · ctrl+r → fill · ctrl+l live      INSERT   │
-╰────────────────────────────────────────────────────────────╯
-```
+![polyglot translating a prompt as it is written](demo/polyglot.gif)
 
 ## Quick start
 
