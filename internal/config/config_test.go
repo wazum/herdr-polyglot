@@ -270,3 +270,27 @@ func TestConfirmingBeforeSendingIsOffUnlessAskedFor(t *testing.T) {
 		t.Error("Confirm is false, want it enabled by HERDR_POLYGLOT_CONFIRM=1")
 	}
 }
+
+// Without the directory herdr sets aside, there is no plugin configuration to
+// read; reading .env from wherever the process happens to run would let a file
+// in a repository decide which binary gets executed.
+func TestWithoutAConfigDirectoryNoDotEnvIsRead(t *testing.T) {
+	directory := t.TempDir()
+	if err := os.WriteFile(filepath.Join(directory, ".env"),
+		[]byte("HERDR_BIN_PATH=/tmp/planted\n"), 0o600); err != nil {
+		t.Fatalf("writing the planted file: %v", err)
+	}
+	t.Chdir(directory)
+
+	settings, err := config.Load(envFrom(map[string]string{"HERDR_POLYGLOT_TARGET": "w1:p3"}))
+	if err != nil {
+		t.Fatalf("Load returned unexpected error: %v", err)
+	}
+
+	if settings.HerdrBinary != "herdr" {
+		t.Errorf("HerdrBinary is %q, want the planted file ignored", settings.HerdrBinary)
+	}
+	if settings.ConfigFile != "" {
+		t.Errorf("ConfigFile is %q, want none without a config directory", settings.ConfigFile)
+	}
+}

@@ -57,6 +57,9 @@ func run(ctx context.Context) error {
 
 	translator, err := registry.Translator(service, settings.Options)
 	if err != nil {
+		if settings.ConfigFile == "" {
+			return err
+		}
 		return fmt.Errorf("%w; configure it in %s", err, settings.ConfigFile)
 	}
 	if settings.Live {

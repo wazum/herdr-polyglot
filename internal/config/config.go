@@ -53,9 +53,15 @@ type Settings struct {
 // override stored settings. Credentials are passed along unchecked: only the
 // service knows what it needs.
 func Load(getenv func(string) string) (Settings, error) {
-	configDir := getenv(configDirVar)
-	configFile := filepath.Join(configDir, dotenvName)
-	stored := readDotenv(configFile)
+	// Without the directory herdr sets aside there is nothing of ours to read.
+	// Falling back to a relative path would let a .env in whatever directory
+	// the process started in decide the settings.
+	configFile := ""
+	stored := map[string]string{}
+	if configDir := getenv(configDirVar); configDir != "" {
+		configFile = filepath.Join(configDir, dotenvName)
+		stored = readDotenv(configFile)
+	}
 
 	lookup := func(key string) string {
 		if value := strings.TrimSpace(getenv(key)); value != "" {
