@@ -578,3 +578,34 @@ func (c *cancellingTranslator) Translate(ctx context.Context, _ string) (string,
 		return english, nil
 	}
 }
+
+func TestEscapeClosesAnEmptyDraftFromNormalMode(t *testing.T) {
+	t.Parallel()
+	target := &recordingTarget{}
+
+	overlayUnderTest := newOverlay(t, stubTranslator{english: english}, target)
+	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyEsc}) // to normal mode
+	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyEsc}) // nothing to lose, so close
+	overlayUnderTest.WaitFinished(t, teatest.WithFinalTimeout(2*time.Second))
+
+	if len(target.inserted) != 0 {
+		t.Errorf("target received %v, want nothing sent", target.inserted)
+	}
+}
+
+func TestEscapeKeepsAWrittenDraftOpen(t *testing.T) {
+	t.Parallel()
+
+	overlayUnderTest := newOverlay(t, stubTranslator{english: english}, &recordingTarget{})
+	overlayUnderTest.Type("Bitte behebe")
+	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyEsc})
+	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyEsc})
+
+	// Still there: escape must not throw away written work.
+	teatest.WaitFor(t, overlayUnderTest.Output(), func(out []byte) bool {
+		return bytes.Contains(out, []byte("Bitte behebe"))
+	}, teatest.WithDuration(2*time.Second))
+
+	overlayUnderTest.Type("q")
+	overlayUnderTest.WaitFinished(t, teatest.WithFinalTimeout(2*time.Second))
+}

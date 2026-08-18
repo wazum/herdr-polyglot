@@ -4,6 +4,7 @@ package overlay
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/charmbracelet/bubbles/spinner"
@@ -154,6 +155,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case blankDraftMsg:
 		m.stage = composing
+		m.failure = promptflow.ErrBlankDraft
 		return m, nil
 
 	case submitFailedMsg:
@@ -201,6 +203,11 @@ func (m Model) handleKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, tea.Quit
 
 	case key.Type == tea.KeyEsc && !m.draft.Modal():
+		return m, tea.Quit
+
+	// In normal mode there is nothing left for escape to do, so an empty draft
+	// closes. A written one stays: escape must not throw away work.
+	case key.Type == tea.KeyEsc && m.draft.Mode() == vimarea.Normal && m.draftIsBlank():
 		return m, tea.Quit
 
 	// q closes only from normal mode, where it cannot be part of a draft.
@@ -289,6 +296,10 @@ func (m Model) startSubmit() (tea.Model, tea.Cmd) {
 			return promptSentMsg{}
 		}
 	})
+}
+
+func (m Model) draftIsBlank() bool {
+	return strings.TrimSpace(m.draft.Value()) == ""
 }
 
 func (m Model) previewIsCurrent() bool {
