@@ -23,6 +23,10 @@ codebase should be in one language, and that language is English.
 The prompt is the one place another language belongs. You write it in yours, the
 agent reads it in English, and nothing it produces switches language.
 
+With live translation on, every prompt you write appears in English right beside
+it. Read a few hundred of those and it rubs off — practice that was never the
+point.
+
 ## Quick start
 
 ```bash
