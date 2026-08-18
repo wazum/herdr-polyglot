@@ -12,7 +12,7 @@ target="${HERDR_PANE_ID:-}"
 mode="${1:-submit}"
 
 if [[ -z $target ]]; then
-	echo "deepl-prompt: no invoking pane; open this from an agent pane" >&2
+	echo "polyglot: no invoking pane; open this from an agent pane" >&2
 	exit 1
 fi
 
@@ -25,6 +25,6 @@ exec "$herdr" plugin pane open \
 	--plugin "$HERDR_PLUGIN_ID" \
 	--entrypoint overlay \
 	--placement overlay \
-	--env "HERDR_DEEPL_TARGET=$target" \
-	--env "HERDR_DEEPL_SUBMIT=$submit" \
+	--env "HERDR_POLYGLOT_TARGET=$target" \
+	--env "HERDR_POLYGLOT_SUBMIT=$submit" \
 	--focus

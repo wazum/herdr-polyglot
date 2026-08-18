@@ -1,5 +1,6 @@
 // Package config resolves the plugin's settings from the environment herdr
-// provides and from the .env file in the plugin's own config directory.
+// provides and from the .env file in the plugin's own config directory. It
+// stays neutral about which translation service is used.
 package config
 
 import (
@@ -8,14 +9,17 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/wazum/herdr-polyglot/internal/translation"
 )
 
 const (
-	targetVar    = "HERDR_DEEPL_TARGET"
-	apiKeyVar    = "DEEPL_API_KEY"
-	submitVar    = "HERDR_DEEPL_SUBMIT"
-	dryRunVar    = "HERDR_DEEPL_DRY_RUN"
-	languageVar  = "HERDR_DEEPL_LANGUAGE"
+	targetVar    = "HERDR_POLYGLOT_TARGET"
+	providerVar  = "HERDR_POLYGLOT_PROVIDER"
+	apiKeyVar    = "HERDR_POLYGLOT_API_KEY"
+	languageVar  = "HERDR_POLYGLOT_LANGUAGE"
+	endpointVar  = "HERDR_POLYGLOT_ENDPOINT"
+	submitVar    = "HERDR_POLYGLOT_SUBMIT"
 	configDirVar = "HERDR_PLUGIN_CONFIG_DIR"
 	binaryVar    = "HERDR_BIN_PATH"
 
@@ -25,19 +29,22 @@ const (
 )
 
 type Settings struct {
-	Target         string
-	APIKey         string
-	TargetLanguage string
-	HerdrBinary    string
-	Submit         bool
-	DryRun         bool
+	Target string
+	// Provider names the translation service; empty means the default.
+	Provider    string
+	Options     translation.Options
+	ConfigFile  string
+	HerdrBinary string
+	Submit      bool
 }
 
-// Load merges herdr's injected environment with the plugin's .env file. The
-// environment wins, so a one-off invocation can override stored settings.
+// The environment wins over the .env file, so a one-off invocation can
+// override stored settings. Credentials are passed along unchecked: only the
+// service knows what it needs.
 func Load(getenv func(string) string) (Settings, error) {
 	configDir := getenv(configDirVar)
-	stored := readDotenv(filepath.Join(configDir, dotenvName))
+	configFile := filepath.Join(configDir, dotenvName)
+	stored := readDotenv(configFile)
 
 	lookup := func(key string) string {
 		if value := strings.TrimSpace(getenv(key)); value != "" {
@@ -46,23 +53,33 @@ func Load(getenv func(string) string) (Settings, error) {
 		return stored[key]
 	}
 
+	provider := lookup(providerVar)
 	settings := Settings{
-		Target:         lookup(targetVar),
-		APIKey:         lookup(apiKeyVar),
-		TargetLanguage: orDefault(lookup(languageVar), defaultLanguage),
-		HerdrBinary:    orDefault(lookup(binaryVar), defaultBinary),
-		Submit:         !isDisabled(lookup(submitVar)),
-		DryRun:         isEnabled(lookup(dryRunVar)),
+		Target:      lookup(targetVar),
+		Provider:    provider,
+		ConfigFile:  configFile,
+		HerdrBinary: orDefault(lookup(binaryVar), defaultBinary),
+		Submit:      !isDisabled(lookup(submitVar)),
+		Options: translation.Options{
+			APIKey:         orDefault(lookup(scopedKeyVar(provider)), lookup(apiKeyVar)),
+			TargetLanguage: orDefault(lookup(languageVar), defaultLanguage),
+			Endpoint:       lookup(endpointVar),
+		},
 	}
 
 	if settings.Target == "" {
 		return Settings{}, fmt.Errorf("no target pane: %s is not set", targetVar)
 	}
-	if settings.APIKey == "" && !settings.DryRun {
-		return Settings{}, fmt.Errorf("no DeepL API key: set %s or add %s=... to %s",
-			apiKeyVar, apiKeyVar, filepath.Join(configDir, dotenvName))
-	}
 	return settings, nil
+}
+
+// Scoping the key by service lets several services be configured side by side.
+func scopedKeyVar(provider string) string {
+	if provider == "" {
+		return ""
+	}
+	scope := strings.ToUpper(strings.NewReplacer("-", "_", ".", "_").Replace(provider))
+	return "HERDR_POLYGLOT_" + scope + "_API_KEY"
 }
 
 func orDefault(value, fallback string) string {
@@ -75,15 +92,6 @@ func orDefault(value, fallback string) string {
 func isDisabled(value string) bool {
 	switch strings.ToLower(value) {
 	case "0", "false", "no", "off":
-		return true
-	default:
-		return false
-	}
-}
-
-func isEnabled(value string) bool {
-	switch strings.ToLower(value) {
-	case "1", "true", "yes", "on":
 		return true
 	default:
 		return false

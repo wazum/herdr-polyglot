@@ -1,30 +1,30 @@
-id = "wazum.deepl-prompt"
-name = "deepl-prompt"
+id = "wazum.polyglot"
+name = "polyglot"
 version = "0.1.0"
 min_herdr_version = "0.8.0"
 platforms = ["macos", "linux"]
-description = "Write agent prompts in your own language; DeepL delivers them as English."
+description = "Write agent prompts in your own language and have them delivered translated."
 
 [[build]]
 command = ["bash", "herdr/install.sh"]
 
 # The overlay is launched by herdr/open.sh, which passes the invoking pane along as
-# HERDR_DEEPL_TARGET so the prompt lands where the keybinding was pressed. All other
-# settings come from the environment or the plugin's .env, never from argv.
+# HERDR_POLYGLOT_TARGET so the prompt lands where the keybinding was pressed. All
+# other settings come from the environment or the plugin's .env, never from argv.
 [[panes]]
 id = "overlay"
-title = "deepl-prompt"
+title = "polyglot"
 placement = "overlay"
 command = ["sh", "-c", "exec \"$HERDR_PLUGIN_ROOT/bin/herdr-polyglot\""]
 
 [[actions]]
 id = "prompt"
-title = "deepl-prompt: write and send a prompt"
+title = "polyglot: write and send a prompt"
 contexts = ["pane"]
 command = ["bash", "herdr/open.sh", "submit"]
 
 [[actions]]
 id = "compose"
-title = "deepl-prompt: write a prompt, review before sending"
+title = "polyglot: write a prompt, review before sending"
 contexts = ["pane"]
 command = ["bash", "herdr/open.sh", "compose"]

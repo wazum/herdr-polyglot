@@ -1,5 +1,5 @@
-// Command herdr-polyglot opens an overlay for composing a prompt in your
-// own language and delivers it to a herdr agent as English.
+// Command herdr-polyglot opens an overlay for composing a prompt in your own
+// language and delivers it to a herdr agent in the target language.
 package main
 
 import (
@@ -25,18 +25,42 @@ func main() {
 	}
 }
 
+// services lists the translation services this build offers. The first one is
+// the default; adding another service means adding it here.
+func services() *translation.Registry {
+	return translation.NewRegistry(
+		deepl.Provider{},
+		translation.DryRunProvider{},
+	)
+}
+
 func run(ctx context.Context) error {
 	settings, err := config.Load(os.Getenv)
 	if err != nil {
 		return err
 	}
 
+	registry := services()
+	service := settings.Provider
+	if service == "" {
+		service = registry.Default()
+	}
+
+	translator, err := registry.Translator(service, settings.Options)
+	if err != nil {
+		return fmt.Errorf("%w; configure it in %s", err, settings.ConfigFile)
+	}
+
 	ctx, stopListening := signal.NotifyContext(ctx, os.Interrupt)
 	defer stopListening()
 
-	flow := promptflow.New(translator(settings), target(settings))
+	flow := promptflow.New(translator, target(settings))
 	program := tea.NewProgram(
-		overlay.New(ctx, flow),
+		overlay.New(ctx, flow, overlay.Options{
+			Service:  service,
+			Language: settings.Options.TargetLanguage,
+			Review:   !settings.Submit,
+		}),
 		tea.WithContext(ctx),
 		tea.WithAltScreen(),
 	)
@@ -44,13 +68,6 @@ func run(ctx context.Context) error {
 		return fmt.Errorf("running overlay: %w", err)
 	}
 	return nil
-}
-
-func translator(settings config.Settings) promptflow.Translator {
-	if settings.DryRun {
-		return translation.DryRun{}
-	}
-	return deepl.New(settings.APIKey, deepl.WithTargetLanguage(settings.TargetLanguage))
 }
 
 func target(settings config.Settings) promptflow.Target {

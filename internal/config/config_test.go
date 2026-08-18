@@ -22,12 +22,12 @@ func configDirContaining(t *testing.T, dotenv string) string {
 	return dir
 }
 
-func TestLoadTakesTargetAndApiKeyFromTheEnvironment(t *testing.T) {
+func TestLoadTakesTheTargetAndCredentialsFromTheEnvironment(t *testing.T) {
 	t.Parallel()
 
 	settings, err := config.Load(envFrom(map[string]string{
-		"HERDR_DEEPL_TARGET": "w1:p3",
-		"DEEPL_API_KEY":      "key-123",
+		"HERDR_POLYGLOT_TARGET":  "w1:p3",
+		"HERDR_POLYGLOT_API_KEY": "key-123",
 	}))
 
 	if err != nil {
@@ -36,39 +36,49 @@ func TestLoadTakesTargetAndApiKeyFromTheEnvironment(t *testing.T) {
 	if settings.Target != "w1:p3" {
 		t.Errorf("Target is %q, want w1:p3", settings.Target)
 	}
-	if settings.APIKey != "key-123" {
-		t.Errorf("APIKey is %q, want key-123", settings.APIKey)
+	if settings.Options.APIKey != "key-123" {
+		t.Errorf("APIKey is %q, want key-123", settings.Options.APIKey)
+	}
+	if settings.Provider != "" {
+		t.Errorf("Provider is %q, want it left to the composition root", settings.Provider)
 	}
 	if !settings.Submit {
 		t.Error("Submit is false, want submitting by default")
 	}
-	if settings.TargetLanguage != "EN-US" {
-		t.Errorf("TargetLanguage is %q, want EN-US by default", settings.TargetLanguage)
+	if settings.Options.TargetLanguage != "EN-US" {
+		t.Errorf("TargetLanguage is %q, want EN-US by default", settings.Options.TargetLanguage)
 	}
 	if settings.HerdrBinary != "herdr" {
 		t.Errorf("HerdrBinary is %q, want herdr by default", settings.HerdrBinary)
 	}
 }
 
-func TestLoadHonoursOverridesForSubmittingAndLanguage(t *testing.T) {
+func TestLoadHonoursTheChosenServiceAndItsOptions(t *testing.T) {
 	t.Parallel()
 
 	settings, err := config.Load(envFrom(map[string]string{
-		"HERDR_DEEPL_TARGET":   "w1:p3",
-		"DEEPL_API_KEY":        "key-123",
-		"HERDR_DEEPL_SUBMIT":   "0",
-		"HERDR_DEEPL_LANGUAGE": "EN-GB",
-		"HERDR_BIN_PATH":       "/opt/homebrew/bin/herdr",
+		"HERDR_POLYGLOT_TARGET":   "w1:p3",
+		"HERDR_POLYGLOT_PROVIDER": "dry-run",
+		"HERDR_POLYGLOT_LANGUAGE": "EN-GB",
+		"HERDR_POLYGLOT_ENDPOINT": "https://translate.example/v2",
+		"HERDR_POLYGLOT_SUBMIT":   "0",
+		"HERDR_BIN_PATH":          "/opt/homebrew/bin/herdr",
 	}))
 
 	if err != nil {
 		t.Fatalf("Load returned unexpected error: %v", err)
 	}
-	if settings.Submit {
-		t.Error("Submit is true, want it disabled by HERDR_DEEPL_SUBMIT=0")
+	if settings.Provider != "dry-run" {
+		t.Errorf("Provider is %q, want dry-run", settings.Provider)
 	}
-	if settings.TargetLanguage != "EN-GB" {
-		t.Errorf("TargetLanguage is %q, want EN-GB", settings.TargetLanguage)
+	if settings.Options.TargetLanguage != "EN-GB" {
+		t.Errorf("TargetLanguage is %q, want EN-GB", settings.Options.TargetLanguage)
+	}
+	if settings.Options.Endpoint != "https://translate.example/v2" {
+		t.Errorf("Endpoint is %q, want the configured one", settings.Options.Endpoint)
+	}
+	if settings.Submit {
+		t.Error("Submit is true, want it disabled by HERDR_POLYGLOT_SUBMIT=0")
 	}
 	if settings.HerdrBinary != "/opt/homebrew/bin/herdr" {
 		t.Errorf("HerdrBinary is %q, want the path from HERDR_BIN_PATH", settings.HerdrBinary)
@@ -77,84 +87,85 @@ func TestLoadHonoursOverridesForSubmittingAndLanguage(t *testing.T) {
 
 func TestLoadReadsSettingsFromTheDotEnvInThePluginConfigDirectory(t *testing.T) {
 	t.Parallel()
-	configDir := configDirContaining(t, "# DeepL credentials\nDEEPL_API_KEY=key-from-file\nHERDR_DEEPL_LANGUAGE=\"EN-GB\"\n")
+	configDir := configDirContaining(t, "# credentials\nHERDR_POLYGLOT_API_KEY=key-from-file\nHERDR_POLYGLOT_LANGUAGE=\"EN-GB\"\n")
 
 	settings, err := config.Load(envFrom(map[string]string{
-		"HERDR_DEEPL_TARGET":      "w1:p3",
+		"HERDR_POLYGLOT_TARGET":   "w1:p3",
 		"HERDR_PLUGIN_CONFIG_DIR": configDir,
 	}))
 
 	if err != nil {
 		t.Fatalf("Load returned unexpected error: %v", err)
 	}
-	if settings.APIKey != "key-from-file" {
-		t.Errorf("APIKey is %q, want the value from the .env file", settings.APIKey)
+	if settings.Options.APIKey != "key-from-file" {
+		t.Errorf("APIKey is %q, want the value from the .env file", settings.Options.APIKey)
 	}
-	if settings.TargetLanguage != "EN-GB" {
-		t.Errorf("TargetLanguage is %q, want the unquoted value from the .env file", settings.TargetLanguage)
+	if settings.Options.TargetLanguage != "EN-GB" {
+		t.Errorf("TargetLanguage is %q, want the unquoted value from the .env file", settings.Options.TargetLanguage)
+	}
+	if settings.ConfigFile != filepath.Join(configDir, ".env") {
+		t.Errorf("ConfigFile is %q, want the .env path so callers can point users at it", settings.ConfigFile)
+	}
+}
+
+func TestAServiceSpecificKeyWinsOverTheGenericOne(t *testing.T) {
+	t.Parallel()
+	configDir := configDirContaining(t, "HERDR_POLYGLOT_API_KEY=generic-key\nHERDR_POLYGLOT_ACME_API_KEY=acme-key\n")
+
+	settings, err := config.Load(envFrom(map[string]string{
+		"HERDR_POLYGLOT_TARGET":   "w1:p3",
+		"HERDR_POLYGLOT_PROVIDER": "acme",
+		"HERDR_PLUGIN_CONFIG_DIR": configDir,
+	}))
+
+	if err != nil {
+		t.Fatalf("Load returned unexpected error: %v", err)
+	}
+	if settings.Options.APIKey != "acme-key" {
+		t.Errorf("APIKey is %q, want the key scoped to the chosen service", settings.Options.APIKey)
 	}
 }
 
 func TestTheEnvironmentWinsOverTheDotEnvFile(t *testing.T) {
 	t.Parallel()
-	configDir := configDirContaining(t, "DEEPL_API_KEY=key-from-file\n")
+	configDir := configDirContaining(t, "HERDR_POLYGLOT_API_KEY=key-from-file\n")
 
 	settings, err := config.Load(envFrom(map[string]string{
-		"HERDR_DEEPL_TARGET":      "w1:p3",
+		"HERDR_POLYGLOT_TARGET":   "w1:p3",
 		"HERDR_PLUGIN_CONFIG_DIR": configDir,
-		"DEEPL_API_KEY":           "key-from-environment",
+		"HERDR_POLYGLOT_API_KEY":  "key-from-environment",
 	}))
 
 	if err != nil {
 		t.Fatalf("Load returned unexpected error: %v", err)
 	}
-	if settings.APIKey != "key-from-environment" {
-		t.Errorf("APIKey is %q, want the environment to win", settings.APIKey)
+	if settings.Options.APIKey != "key-from-environment" {
+		t.Errorf("APIKey is %q, want the environment to win", settings.Options.APIKey)
 	}
 }
 
-func TestLoadWithoutAnApiKeySaysWhereToPutOne(t *testing.T) {
-	t.Parallel()
-	configDir := t.TempDir()
-
-	_, err := config.Load(envFrom(map[string]string{
-		"HERDR_DEEPL_TARGET":      "w1:p3",
-		"HERDR_PLUGIN_CONFIG_DIR": configDir,
-	}))
-
-	if err == nil {
-		t.Fatal("Load returned no error, want a complaint about the missing key")
-	}
-	if !strings.Contains(err.Error(), "DEEPL_API_KEY") || !strings.Contains(err.Error(), configDir) {
-		t.Errorf("error %q names neither the variable nor the config directory", err)
-	}
-}
-
-func TestLoadWithoutAnApiKeyIsFineForADryRun(t *testing.T) {
+func TestLoadLeavesMissingCredentialsToTheService(t *testing.T) {
 	t.Parallel()
 
-	settings, err := config.Load(envFrom(map[string]string{
-		"HERDR_DEEPL_TARGET":  "w1:p3",
-		"HERDR_DEEPL_DRY_RUN": "1",
-	}))
+	settings, err := config.Load(envFrom(map[string]string{"HERDR_POLYGLOT_TARGET": "w1:p3"}))
 
 	if err != nil {
 		t.Fatalf("Load returned unexpected error: %v", err)
 	}
-	if !settings.DryRun {
-		t.Error("DryRun is false, want it enabled")
+	if settings.Options.APIKey != "" {
+		t.Errorf("APIKey is %q, want it empty", settings.Options.APIKey)
 	}
 }
 
 func TestLoadWithoutATargetFails(t *testing.T) {
 	t.Parallel()
 
-	_, err := config.Load(envFrom(map[string]string{"DEEPL_API_KEY": "key-123"}))
+	_, err := config.Load(envFrom(map[string]string{"HERDR_POLYGLOT_API_KEY": "key-123"}))
 
 	if err == nil {
 		t.Fatal("Load returned no error, want a complaint about the missing target")
 	}
-	if !strings.Contains(err.Error(), "HERDR_DEEPL_TARGET") {
+	if !strings.Contains(err.Error(), "HERDR_POLYGLOT_TARGET") {
 		t.Errorf("error %q does not name the target variable", err)
 	}
 }

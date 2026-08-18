@@ -39,9 +39,24 @@ func newOverlay(t *testing.T, translator promptflow.Translator, target promptflo
 	t.Helper()
 	return teatest.NewTestModel(
 		t,
-		overlay.New(context.Background(), promptflow.New(translator, target)),
+		overlay.New(context.Background(), promptflow.New(translator, target), overlay.Options{
+			Service:  "deepl",
+			Language: "EN-US",
+		}),
 		teatest.WithInitialTermSize(80, 20),
 	)
+}
+
+func TestTheOverlayShowsWhichServiceAndLanguageItWillUse(t *testing.T) {
+	t.Parallel()
+
+	overlayUnderTest := newOverlay(t, stubTranslator{english: english}, &recordingTarget{})
+	teatest.WaitFor(t, overlayUnderTest.Output(), func(out []byte) bool {
+		return bytes.Contains(out, []byte("deepl")) && bytes.Contains(out, []byte("EN-US"))
+	}, teatest.WithDuration(2*time.Second))
+
+	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyEsc})
+	overlayUnderTest.WaitFinished(t, teatest.WithFinalTimeout(2*time.Second))
 }
 
 func TestSubmittingADraftInsertsTheEnglishTranslationIntoTheTarget(t *testing.T) {
