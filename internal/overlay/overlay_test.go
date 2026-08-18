@@ -214,27 +214,38 @@ func TestEnterAddsALineInsteadOfSending(t *testing.T) {
 	overlayUnderTest.WaitFinished(t, teatest.WithFinalTimeout(2*time.Second))
 }
 
-// An alt chord arrives as an escape followed by the key, so escape and then
-// enter in quick succession must not be mistaken for a send.
-func TestAltEnterDoesNotSend(t *testing.T) {
+func TestAltEnterSendsLikeCtrlD(t *testing.T) {
 	t.Parallel()
 	target := &recordingTarget{}
 
 	overlayUnderTest := newOverlay(t, stubTranslator{english: english}, target)
 	overlayUnderTest.Type(draft)
 	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyEnter, Alt: true})
-	time.Sleep(200 * time.Millisecond)
-
-	if len(target.inserted) != 0 {
-		t.Errorf("target received %v, want nothing sent without ctrl+d", target.inserted)
-	}
-
-	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyCtrlD})
 	overlayUnderTest.WaitFinished(t, teatest.WithFinalTimeout(2*time.Second))
 
 	if len(target.inserted) != 1 || target.inserted[0] != english {
 		t.Errorf("target received %v, want one insert of %q", target.inserted, english)
 	}
+}
+
+// A terminal writes an alt chord as an escape and then the key. Two presses stay
+// two messages, so leaving insert mode and pressing enter is not a send.
+func TestEscapeThenEnterIsNotASend(t *testing.T) {
+	t.Parallel()
+	target := &recordingTarget{}
+
+	overlayUnderTest := newOverlay(t, stubTranslator{english: english}, target)
+	overlayUnderTest.Type(draft)
+	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyEsc})
+	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyEnter})
+	time.Sleep(200 * time.Millisecond)
+
+	if len(target.inserted) != 0 {
+		t.Errorf("target received %v, want nothing sent", target.inserted)
+	}
+
+	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyCtrlC})
+	overlayUnderTest.WaitFinished(t, teatest.WithFinalTimeout(2*time.Second))
 }
 
 func TestADraftKeepsCharactersOutsideAscii(t *testing.T) {

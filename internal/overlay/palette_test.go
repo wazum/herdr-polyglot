@@ -144,9 +144,9 @@ func TestTheFooterListsEveryKeyAndStillFits(t *testing.T) {
 
 			// Normal mode has vim's own way to clear a line, so ctrl+u steps aside
 			// there to leave room for i.
-			expected := []string{"ctrl+d", "ctrl+r", "ctrl+l", "ctrl+u", "esc"}
+			expected := []string{"alt+enter", "ctrl+r", "ctrl+l", "ctrl+u", "esc"}
 			if vim && normalMode {
-				expected = []string{"ctrl+d", "ctrl+r", "ctrl+l", "i ", "esc"}
+				expected = []string{"alt+enter", "ctrl+r", "ctrl+l", "i ", "esc"}
 			}
 
 			footer := lastLine(model.View())

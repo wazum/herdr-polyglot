@@ -427,11 +427,10 @@ func (m Model) handleKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.preview, m.previewOf, m.previewError = "", "", nil
 		return m, nil
 
-	// Sending is deliberate; a bare enter belongs to the draft. Only ctrl+d
-	// sends: an alt chord reaches the program as an escape followed by the key,
-	// so escape and then enter, typed quickly, would send a draft by accident —
-	// and on macOS an alt chord often does not arrive at all.
-	case key.Type == tea.KeyCtrlD:
+	// Sending is deliberate: a bare enter is a new line, alt+enter sends. Herdr
+	// passes the chord through as one key press, so two presses of escape and
+	// enter stay two messages and cannot become a send.
+	case key.Type == tea.KeyCtrlD, key.Type == tea.KeyEnter && key.Alt:
 		switch m.stage {
 		case translating:
 			return m, nil

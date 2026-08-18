@@ -150,7 +150,7 @@ func (m Model) footer(line int) string {
 // the readme rather than the footer.
 func (m Model) keyHints() string {
 	shown := [][2]string{
-		{"ctrl+d", m.destination()},
+		{"alt+enter", m.destination()},
 		{"ctrl+r", "→ " + m.otherDestination()},
 		{"ctrl+l", "live"},
 	}

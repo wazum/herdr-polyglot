@@ -21,12 +21,12 @@ tool.
 │ ╭──────────────────────────────────────────╮ │
 │ │ Bitte behebe den fehlschlagenden Test    │ │
 │ ╰──────────────────────────────────────────╯ │
-│ INSERT  ctrl+d send · esc normal · enter …   │
+│ INSERT  alt+enter send · esc → normal        │
 ╰──────────────────────────────────────────────╯
 ```
 
-Sending is deliberate: `ctrl+d` translates and delivers, while `enter` stays what
-it should be inside a text box — a new line.
+Sending is deliberate: `alt+enter` translates and delivers, while `enter` stays
+what it should be inside a text box — a new line.
 
 ## Install
 
@@ -62,7 +62,7 @@ by itself.
 | `HERDR_POLYGLOT_SUBMIT` | `0` types the prompt without sending it |
 | `HERDR_POLYGLOT_VIM` | `1` turns on the vim bindings described below |
 | `HERDR_POLYGLOT_LIVE` | `1` translates while you write, see below |
-| `HERDR_POLYGLOT_CONFIRM` | `1` shows the English and waits for a second `ctrl+d` |
+| `HERDR_POLYGLOT_CONFIRM` | `1` shows the English and waits for a second `alt+enter` |
 | `HERDR_POLYGLOT_KEEP_DRAFT` | `0` starts from an empty box instead of resuming |
 | `HERDR_POLYGLOT_MAX_DRAFT` | Characters before the box says the draft is too long, `2000` by default |
 | `HERDR_POLYGLOT_PULSE` | `0` stops the live circle from breathing |
@@ -105,7 +105,7 @@ header says which it will be.
 
 | | |
 | --- | --- |
-| `ctrl+d` | translate and hand the prompt over |
+| `alt+enter` | translate and hand the prompt over — `ctrl+d` does the same |
 | `ctrl+r` | switch between `send` and `paste` — the header says which one is next |
 | `ctrl+l` | turn live translation on or off for this prompt |
 | `enter` | a new line, because a prompt is often more than one |
@@ -139,9 +139,9 @@ config-dir wazum.polyglot` prints.
 
 ## Reading the English before it goes
 
-`HERDR_POLYGLOT_CONFIRM=1` puts a stop between translating and sending: `ctrl+d`
-shows the English, a second `ctrl+d` delivers it, and `esc` goes back to writing.
-It costs one translation, not two, and pairs well with live translation off.
+`HERDR_POLYGLOT_CONFIRM=1` puts a stop between translating and sending: `alt+enter`
+shows the English, a second `alt+enter` delivers it, and `esc` goes back to
+writing. It costs one translation, not two, and pairs well with live off.
 
 ## Live translation
 
@@ -158,7 +158,7 @@ you write, roughly 600ms after you stop typing.
 │ ╭────────────────────────────────────────────╮ │
 │ │ Please fix the failing test                │ │
 │ ╰────────────────────────────────────────────╯ │
-│ INSERT  ctrl+d send · esc normal               │
+│ INSERT  alt+enter send · esc → normal          │
 ╰────────────────────────────────────────────────╯
 ```
 
@@ -198,7 +198,7 @@ files, buffers or windows here, so nothing that acts on them exists.
 | Yank and paste | `yy`, `p`, `P` |
 | Undo | `u` |
 | Counts | `3j`, `2dd`, `3x` and so on |
-| Leaving | `ctrl+d` sends, `esc` closes from normal mode, `ctrl+c` always closes |
+| Leaving | `alt+enter` sends, `esc` closes from normal mode, `ctrl+c` always closes |
 
 Without vim, the box is an ordinary text area and `esc` closes it.
 
@@ -235,7 +235,7 @@ does paint the terminal palette, which is what the overlay draws with.
 The keybinding runs an action that knows which pane you pressed it in. It opens
 the draft box as a floating popup sized to exactly what the box needs, so the
 agent's output stays readable around it, and passes that pane id along in the
-environment. On `ctrl+d` the draft goes to a translation service and the result
+environment. On `alt+enter` the draft goes to a translation service and the result
 is handed back to the same pane through the herdr CLI — `agent prompt` to send
 it, or `pane send-text` to type it without sending.
 
