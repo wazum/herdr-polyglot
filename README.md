@@ -64,6 +64,8 @@ by itself.
 | `HERDR_POLYGLOT_LIVE` | `1` translates while you write, see below |
 | `HERDR_POLYGLOT_CONFIRM` | `1` shows the English and waits for a second `ctrl+d` |
 | `HERDR_POLYGLOT_KEEP_DRAFT` | `0` starts from an empty box instead of resuming |
+| `HERDR_POLYGLOT_MAX_DRAFT` | Characters before the box says the draft is too long, `2000` by default |
+| `HERDR_POLYGLOT_PULSE` | `0` stops the live circle from breathing |
 
 Every setting can also be passed as an environment variable, which wins over
 the `.env` file. With `HERDR_POLYGLOT_PROVIDER=dry-run` the overlay marks the
@@ -162,6 +164,13 @@ Sending costs nothing extra either: if the English on screen belongs to the
 draft as it stands, that text is delivered as it is. A translation you have read
 is never paid for twice. While a preview is out of date it is dimmed, and a
 newer one always wins over a slower older one.
+
+The circle beside `live` fills and empties while a translation is on its way, so
+you can see it working without watching the text.
+
+A draft longer than 2,000 characters stops being translated as you write, and the
+box says so: this is a place for prompts you write, not files you paste. Sending
+still works, and `ctrl+u` throws the draft away.
 
 ## Vim bindings
 
