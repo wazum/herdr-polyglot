@@ -4,6 +4,7 @@
 package vimarea
 
 import (
+	"math"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/textarea"
@@ -53,13 +54,29 @@ func WithStyles(text, placeholder, cursor lipgloss.Style) Option {
 }
 
 type Model struct {
-	area     textarea.Model
-	modal    bool
-	mode     Mode
-	pending  string
-	count    int
-	register string
-	history  []snapshot
+	area    textarea.Model
+	modal   bool
+	mode    Mode
+	pending string
+	// count applies to the whole command; pendingCount is the one typed
+	// between an operator and its motion, as in the 3 of d3w.
+	count        int
+	pendingCount int
+	// desiredCol is the column j and k aim for, which vim remembers across
+	// short lines. stickyEnd is $ holding on to the end of every line.
+	desiredCol int
+	stickyEnd  bool
+	register   register
+	history    []snapshot
+	// insertRemembered says this insert session is already on the undo stack,
+	// so a whole typed sentence undoes in one step.
+	insertRemembered bool
+	// A count before an insert command repeats what was typed once the session
+	// ends, the way vim replays 3iab or 3o. typed collects it; a key that is
+	// not plain text abandons the replay rather than guess at it.
+	insertRepeat   int
+	insertTyped    []rune
+	insertNewLines bool
 }
 
 func New(options ...Option) Model {
@@ -94,8 +111,8 @@ func (m Model) Column() int {
 // reading and editing start.
 func (m *Model) SetValue(text string) {
 	m.area.SetValue(text)
-	m.toFirstLine()
-	m.area.CursorStart()
+	m.toRow(0)
+	m.setCol(0)
 }
 
 func (m *Model) SetWidth(width int)   { m.area.SetWidth(width) }
@@ -112,7 +129,7 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 
 	// Bracketed paste is text, never commands — the same call nvim makes.
 	if key.Paste {
-		m.remember()
+		m.rememberBefore(m.area.Value(), m.Row(), m.Column())
 		m.area.InsertString(string(key.Runes))
 		return m, nil
 	}
@@ -120,13 +137,61 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	if m.mode == Normal {
 		return m.normal(key), nil
 	}
+	return m.insert(key, msg)
+}
+
+func (m Model) insert(key tea.KeyMsg, msg tea.Msg) (Model, tea.Cmd) {
 	if key.Type == tea.KeyEsc {
+		m.replayInsert()
 		m.mode = Normal
-		m.pending = ""
-		m.count = 0
+		m.pending, m.count, m.pendingCount = "", 0, 0
+		m.insertRemembered = false
+		// Vim steps back on leaving insert mode: in insert the cursor sits
+		// after the character just typed.
+		m.setCol(max(m.Column()-1, 0))
+		m.clampToLine()
 		return m, nil
 	}
-	return m.delegate(msg)
+
+	before, row, col := m.area.Value(), m.Row(), m.Column()
+
+	var cmd tea.Cmd
+	m.area, cmd = m.area.Update(msg)
+
+	// The whole typed passage becomes one undo step, as in vim.
+	if !m.insertRemembered && m.area.Value() != before {
+		m.rememberBefore(before, row, col)
+		m.insertRemembered = true
+	}
+	m.recordTyped(key)
+	m.desiredCol = m.Column()
+	return m, cmd
+}
+
+func (m *Model) recordTyped(key tea.KeyMsg) {
+	if m.insertRepeat <= 1 {
+		return
+	}
+	if key.Type != tea.KeyRunes {
+		m.insertRepeat = 1
+		return
+	}
+	m.insertTyped = append(m.insertTyped, key.Runes...)
+}
+
+func (m *Model) replayInsert() {
+	if m.insertRepeat <= 1 || len(m.insertTyped) == 0 {
+		return
+	}
+
+	typed := string(m.insertTyped)
+	if m.insertNewLines {
+		typed = "\n" + typed
+	}
+	for range m.insertRepeat - 1 {
+		m.area.InsertString(typed)
+	}
+	m.insertRepeat, m.insertTyped = 1, nil
 }
 
 func (m Model) delegate(msg tea.Msg) (Model, tea.Cmd) {
@@ -135,8 +200,24 @@ func (m Model) delegate(msg tea.Msg) (Model, tea.Cmd) {
 	return m, cmd
 }
 
-func (m *Model) send(key tea.KeyMsg) {
-	m.area, _ = m.area.Update(key)
+func (m *Model) enterInsert(times int) {
+	m.mode = Insert
+	m.insertRemembered = false
+	m.insertRepeat, m.insertTyped, m.insertNewLines = max(times, 1), nil, false
+}
+
+// enterInsertLines is o and O, where each repetition starts a new line.
+func (m *Model) enterInsertLines(times int) {
+	m.enterInsert(times)
+	m.insertNewLines = true
+}
+
+// enterInsertKeeping starts an insert session whose undo step is already on the
+// stack, so a change command and the typing that follows undo together.
+func (m *Model) enterInsertKeeping() {
+	m.mode = Insert
+	m.insertRemembered = true
+	m.insertRepeat, m.insertTyped, m.insertNewLines = 1, nil, false
 }
 
 func (m *Model) repeat(times int, action func()) {
@@ -145,25 +226,77 @@ func (m *Model) repeat(times int, action func()) {
 	}
 }
 
-// takeCount consumes a pending count such as the 3 in 3j.
+// takeCount consumes the count typed before a command, such as the 3 in 3j.
 func (m *Model) takeCount() int {
 	count := max(m.count, 1)
 	m.count = 0
 	return count
 }
 
-func (m *Model) toFirstLine() {
-	for m.area.Line() > 0 {
-		m.area.CursorUp()
-	}
+func (m Model) lines() []string {
+	return strings.Split(m.area.Value(), "\n")
 }
 
-func (m *Model) toLastLine() {
-	for m.area.Line() < m.area.LineCount()-1 {
+func (m Model) line() []rune {
+	lines := m.lines()
+	row := min(max(m.Row(), 0), len(lines)-1)
+	return []rune(lines[row])
+}
+
+// lastCol is where the cursor may rest in normal mode: on the last character,
+// never past it.
+func (m Model) lastCol() int {
+	return max(len(m.line())-1, 0)
+}
+
+func (m *Model) setCol(col int) {
+	m.area.CursorStart()
+	if col > 0 {
+		m.area.SetCursor(col)
+	}
+	m.desiredCol = m.Column()
+	m.stickyEnd = false
+}
+
+// toRow moves between logical lines. A soft-wrapped line spans several screen
+// rows, which is what the text area's own cursor movement counts.
+func (m *Model) toRow(target int) {
+	target = min(max(target, 0), m.area.LineCount()-1)
+	for m.area.Line() > target {
+		m.area.CursorUp()
+	}
+	for m.area.Line() < target {
 		m.area.CursorDown()
 	}
 }
 
-func (m Model) lines() []string {
-	return strings.Split(m.area.Value(), "\n")
+// toLine goes to a row and lands on the column vim would remember.
+func (m *Model) toLine(target int) {
+	m.toRow(target)
+
+	wanted := m.desiredCol
+	if m.stickyEnd {
+		wanted = math.MaxInt
+	}
+	m.area.CursorStart()
+	if column := min(wanted, m.lastCol()); column > 0 {
+		m.area.SetCursor(column)
+	}
+}
+
+// clampToLine pulls the cursor back onto the line, which is where normal mode
+// keeps it.
+func (m *Model) clampToLine() {
+	if column := m.Column(); column > m.lastCol() {
+		m.setCol(m.lastCol())
+	}
+}
+
+func firstNonBlank(line []rune) int {
+	for index, r := range line {
+		if !isBlank(r) {
+			return index
+		}
+	}
+	return max(len(line)-1, 0)
 }

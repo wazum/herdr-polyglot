@@ -4,30 +4,11 @@ import (
 	"strings"
 	"testing"
 
-	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/muesli/termenv"
 
 	"github.com/wazum/herdr-polyglot/internal/vimarea"
 )
-
-func keys(area vimarea.Model, sequence string) vimarea.Model {
-	for _, r := range sequence {
-		area, _ = area.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
-	}
-	return area
-}
-
-func press(area vimarea.Model, keyType tea.KeyType) vimarea.Model {
-	area, _ = area.Update(tea.KeyMsg{Type: keyType})
-	return area
-}
-
-func normalWith(text string) vimarea.Model {
-	area := vimarea.New(vimarea.WithVim(true))
-	area.SetValue(text)
-	return press(area, tea.KeyEsc)
-}
 
 func TestTypingWorksStraightAwayBecauseTheDraftStartsInInsertMode(t *testing.T) {
 	t.Parallel()
@@ -37,7 +18,7 @@ func TestTypingWorksStraightAwayBecauseTheDraftStartsInInsertMode(t *testing.T) 
 		t.Fatalf("mode is %v, want insert", area.Mode())
 	}
 
-	area = keys(area, "hallo")
+	area = press(area, "hallo")
 	if area.Value() != "hallo" {
 		t.Errorf("value is %q, want the typed text", area.Value())
 	}
@@ -46,14 +27,14 @@ func TestTypingWorksStraightAwayBecauseTheDraftStartsInInsertMode(t *testing.T) 
 func TestEscapeLeavesInsertModeAndLettersStopReachingTheDraft(t *testing.T) {
 	t.Parallel()
 
-	area := keys(vimarea.New(vimarea.WithVim(true)), "hallo")
-	area = press(area, tea.KeyEsc)
+	area := press(vimarea.New(vimarea.WithVim(true)), "hallo")
+	area = press(area, "<esc>")
 
 	if area.Mode() != vimarea.Normal {
 		t.Fatalf("mode is %v, want normal", area.Mode())
 	}
 
-	area = keys(area, "jkl")
+	area = press(area, "jkl")
 	if area.Value() != "hallo" {
 		t.Errorf("value is %q, want it untouched in normal mode", area.Value())
 	}
@@ -61,24 +42,24 @@ func TestEscapeLeavesInsertModeAndLettersStopReachingTheDraft(t *testing.T) {
 
 func TestHjklMovesTheCursor(t *testing.T) {
 	t.Parallel()
-	area := normalWith("eins\nzwei")
+	area := boxed(t, "eins\nzwei")
 
-	area = keys(area, "ll")
+	area = press(area, "ll")
 	if area.Row() != 0 || area.Column() != 2 {
 		t.Errorf("cursor at %d:%d, want 0:2 after ll", area.Row(), area.Column())
 	}
 
-	area = keys(area, "j")
+	area = press(area, "j")
 	if area.Row() != 1 {
 		t.Errorf("cursor on row %d, want row 1 after j", area.Row())
 	}
 
-	area = keys(area, "h")
+	area = press(area, "h")
 	if area.Column() != 1 {
 		t.Errorf("cursor at column %d, want 1 after h", area.Column())
 	}
 
-	area = keys(area, "k")
+	area = press(area, "k")
 	if area.Row() != 0 {
 		t.Errorf("cursor on row %d, want row 0 after k", area.Row())
 	}
@@ -86,14 +67,14 @@ func TestHjklMovesTheCursor(t *testing.T) {
 
 func TestZeroAndDollarJumpToTheLineEdges(t *testing.T) {
 	t.Parallel()
-	area := normalWith("eins zwei")
+	area := boxed(t, "eins zwei")
 
-	area = keys(area, "$")
+	area = press(area, "$")
 	if area.Column() != len("eins zwei")-1 {
 		t.Errorf("cursor at column %d, want the last character after $", area.Column())
 	}
 
-	area = keys(area, "0")
+	area = press(area, "0")
 	if area.Column() != 0 {
 		t.Errorf("cursor at column %d, want 0 after 0", area.Column())
 	}
@@ -101,19 +82,19 @@ func TestZeroAndDollarJumpToTheLineEdges(t *testing.T) {
 
 func TestWordMotionsMoveBetweenWords(t *testing.T) {
 	t.Parallel()
-	area := normalWith("eins zwei drei")
+	area := boxed(t, "eins zwei drei")
 
-	area = keys(area, "w")
+	area = press(area, "w")
 	if area.Column() != 5 {
 		t.Errorf("cursor at column %d, want the start of zwei after w", area.Column())
 	}
 
-	area = keys(area, "w")
+	area = press(area, "w")
 	if area.Column() != 10 {
 		t.Errorf("cursor at column %d, want the start of drei after w", area.Column())
 	}
 
-	area = keys(area, "b")
+	area = press(area, "b")
 	if area.Column() != 5 {
 		t.Errorf("cursor at column %d, want the start of zwei after b", area.Column())
 	}
@@ -121,14 +102,14 @@ func TestWordMotionsMoveBetweenWords(t *testing.T) {
 
 func TestGgAndGJumpToTheFirstAndLastLine(t *testing.T) {
 	t.Parallel()
-	area := normalWith("eins\nzwei\ndrei")
+	area := boxed(t, "eins\nzwei\ndrei")
 
-	area = keys(area, "G")
+	area = press(area, "G")
 	if area.Row() != 2 {
 		t.Errorf("cursor on row %d, want the last row after G", area.Row())
 	}
 
-	area = keys(area, "gg")
+	area = press(area, "gg")
 	if area.Row() != 0 {
 		t.Errorf("cursor on row %d, want the first row after gg", area.Row())
 	}
@@ -152,13 +133,13 @@ func TestInsertEntriesStartTypingWhereVimWould(t *testing.T) {
 	} {
 		t.Run(entry.name, func(t *testing.T) {
 			t.Parallel()
-			area := keys(normalWith("eins zwei"), entry.sequence)
+			area := press(boxed(t, "eins zwei"), entry.sequence)
 
 			if area.Mode() != vimarea.Insert {
 				t.Fatalf("mode is %v, want insert after %q", area.Mode(), entry.sequence)
 			}
 
-			area = keys(area, entry.typed)
+			area = press(area, entry.typed)
 			if area.Value() != entry.want {
 				t.Errorf("value is %q, want %q", area.Value(), entry.want)
 			}
@@ -169,7 +150,7 @@ func TestInsertEntriesStartTypingWhereVimWould(t *testing.T) {
 func TestXDeletesTheCharacterUnderTheCursor(t *testing.T) {
 	t.Parallel()
 
-	area := keys(normalWith("eins"), "x")
+	area := press(boxed(t, "eins"), "x")
 
 	if area.Value() != "ins" {
 		t.Errorf("value is %q, want the first character gone", area.Value())
@@ -179,7 +160,7 @@ func TestXDeletesTheCharacterUnderTheCursor(t *testing.T) {
 func TestDdDeletesTheWholeLine(t *testing.T) {
 	t.Parallel()
 
-	area := keys(normalWith("eins\nzwei\ndrei"), "jdd")
+	area := press(boxed(t, "eins\nzwei\ndrei"), "jdd")
 
 	if area.Value() != "eins\ndrei" {
 		t.Errorf("value is %q, want the second line gone", area.Value())
@@ -189,7 +170,7 @@ func TestDdDeletesTheWholeLine(t *testing.T) {
 func TestDDeletesToTheEndOfTheLine(t *testing.T) {
 	t.Parallel()
 
-	area := keys(normalWith("eins zwei"), "wD")
+	area := press(boxed(t, "eins zwei"), "wD")
 
 	if area.Value() != "eins " {
 		t.Errorf("value is %q, want everything from the cursor gone", area.Value())
@@ -199,7 +180,7 @@ func TestDDeletesToTheEndOfTheLine(t *testing.T) {
 func TestDwDeletesAWord(t *testing.T) {
 	t.Parallel()
 
-	area := keys(normalWith("eins zwei drei"), "wdw")
+	area := press(boxed(t, "eins zwei drei"), "wdw")
 
 	if area.Value() != "eins drei" {
 		t.Errorf("value is %q, want the second word gone", area.Value())
@@ -209,12 +190,12 @@ func TestDwDeletesAWord(t *testing.T) {
 func TestCwReplacesAWord(t *testing.T) {
 	t.Parallel()
 
-	area := keys(normalWith("eins zwei"), "wcw")
+	area := press(boxed(t, "eins zwei"), "wcw")
 	if area.Mode() != vimarea.Insert {
 		t.Fatalf("mode is %v, want insert after cw", area.Mode())
 	}
 
-	area = keys(area, "drei")
+	area = press(area, "drei")
 	if area.Value() != "eins drei" {
 		t.Errorf("value is %q, want the word replaced", area.Value())
 	}
@@ -223,8 +204,8 @@ func TestCwReplacesAWord(t *testing.T) {
 func TestCcClearsTheLineAndStartsTyping(t *testing.T) {
 	t.Parallel()
 
-	area := keys(normalWith("eins\nzwei"), "jcc")
-	area = keys(area, "drei")
+	area := press(boxed(t, "eins\nzwei"), "jcc")
+	area = press(area, "drei")
 
 	if area.Value() != "eins\ndrei" {
 		t.Errorf("value is %q, want the second line rewritten", area.Value())
@@ -234,7 +215,7 @@ func TestCcClearsTheLineAndStartsTyping(t *testing.T) {
 func TestYyAndPDuplicateALine(t *testing.T) {
 	t.Parallel()
 
-	area := keys(normalWith("eins\nzwei"), "yyp")
+	area := press(boxed(t, "eins\nzwei"), "yyp")
 
 	if area.Value() != "eins\neins\nzwei" {
 		t.Errorf("value is %q, want the first line pasted below itself", area.Value())
@@ -244,7 +225,7 @@ func TestYyAndPDuplicateALine(t *testing.T) {
 func TestCapitalPPastesAboveTheCursor(t *testing.T) {
 	t.Parallel()
 
-	area := keys(normalWith("eins\nzwei"), "jyyP")
+	area := press(boxed(t, "eins\nzwei"), "jyyP")
 
 	if area.Value() != "eins\nzwei\nzwei" {
 		t.Errorf("value is %q, want the yanked line pasted above", area.Value())
@@ -254,8 +235,8 @@ func TestCapitalPPastesAboveTheCursor(t *testing.T) {
 func TestUndoRestoresTheDraftAndTheCursor(t *testing.T) {
 	t.Parallel()
 
-	area := keys(normalWith("eins\nzwei\ndrei"), "jdd")
-	area = keys(area, "u")
+	area := press(boxed(t, "eins\nzwei\ndrei"), "jdd")
+	area = press(area, "u")
 
 	if area.Value() != "eins\nzwei\ndrei" {
 		t.Errorf("value is %q, want the deleted line back", area.Value())
@@ -268,12 +249,12 @@ func TestUndoRestoresTheDraftAndTheCursor(t *testing.T) {
 func TestACountRepeatsAMotionAndAnEdit(t *testing.T) {
 	t.Parallel()
 
-	area := keys(normalWith("eins zwei drei"), "3x")
+	area := press(boxed(t, "eins zwei drei"), "3x")
 	if area.Value() != "s zwei drei" {
 		t.Errorf("value is %q, want three characters gone", area.Value())
 	}
 
-	area = keys(normalWith("eins\nzwei\ndrei\nvier"), "3j")
+	area = press(boxed(t, "eins\nzwei\ndrei\nvier"), "3j")
 	if area.Row() != 3 {
 		t.Errorf("cursor on row %d, want row 3 after 3j", area.Row())
 	}
@@ -282,18 +263,18 @@ func TestACountRepeatsAMotionAndAnEdit(t *testing.T) {
 func TestEditingKeepsCharactersOutsideAscii(t *testing.T) {
 	t.Parallel()
 
-	area := normalWith("prüfe die Übersetzung")
-	area = keys(area, "wx")
+	area := boxed(t, "prüfe die Übersetzung")
+	area = press(area, "wx")
 
 	if area.Value() != "prüfe ie Übersetzung" {
 		t.Errorf("value is %q, want only the d of die gone", area.Value())
 	}
 
-	area = keys(area, "0")
+	area = press(area, "0")
 	if area.Column() != 0 {
 		t.Errorf("cursor at column %d, want 0", area.Column())
 	}
-	area = keys(area, "$")
+	area = press(area, "$")
 	if area.Column() != len([]rune("prüfe ie Übersetzung"))-1 {
 		t.Errorf("cursor at column %d, want the last rune", area.Column())
 	}
@@ -307,9 +288,9 @@ func TestWithoutVimBindingsEveryKeyGoesIntoTheDraft(t *testing.T) {
 		t.Fatal("Modal is true, want plain editing")
 	}
 
-	area = keys(area, "hallo")
-	area = press(area, tea.KeyEsc)
-	area = keys(area, "jkl")
+	area = press(area, "hallo")
+	area = press(area, "<esc>")
+	area = press(area, "jkl")
 
 	if area.Value() != "hallojkl" {
 		t.Errorf("value is %q, want every key typed as text", area.Value())
@@ -319,17 +300,12 @@ func TestWithoutVimBindingsEveryKeyGoesIntoTheDraft(t *testing.T) {
 	}
 }
 
-func paste(area vimarea.Model, text string) vimarea.Model {
-	area, _ = area.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(text), Paste: true})
-	return area
-}
-
 func TestPastedTextLandsInTheDraftAndTypingContinuesAfterIt(t *testing.T) {
 	t.Parallel()
-	area := keys(vimarea.New(vimarea.WithVim(true)), "Kontext: ")
+	area := press(vimarea.New(vimarea.WithVim(true)), "Kontext: ")
 
-	area = paste(area, "erste Zeile\nzweite Zeile mit Übersetzung")
-	area = keys(area, " – weiter")
+	area = pasted(area, "erste Zeile\nzweite Zeile mit Übersetzung")
+	area = press(area, " – weiter")
 
 	const want = "Kontext: erste Zeile\nzweite Zeile mit Übersetzung – weiter"
 	if area.Value() != want {
@@ -339,11 +315,11 @@ func TestPastedTextLandsInTheDraftAndTypingContinuesAfterIt(t *testing.T) {
 
 func TestPastingInNormalModeInsertsTextInsteadOfRunningItAsCommands(t *testing.T) {
 	t.Parallel()
-	area := normalWith("Kontext")
+	area := boxed(t, "Kontext")
 
 	// Every character here is also a normal-mode command: d deletes, x cuts,
 	// p pastes. None of them may fire.
-	area = paste(area, " dxp")
+	area = pasted(area, " dxp")
 
 	if area.Value() != " dxpKontext" {
 		t.Errorf("value is %q, want the pasted text inserted verbatim", area.Value())
@@ -356,7 +332,7 @@ func TestPastingInNormalModeInsertsTextInsteadOfRunningItAsCommands(t *testing.T
 func TestPastingWorksWithoutVimBindings(t *testing.T) {
 	t.Parallel()
 
-	area := paste(vimarea.New(vimarea.WithVim(false)), "eins\nzwei")
+	area := pasted(vimarea.New(vimarea.WithVim(false)), "eins\nzwei")
 
 	if area.Value() != "eins\nzwei" {
 		t.Errorf("value is %q, want the pasted text", area.Value())
