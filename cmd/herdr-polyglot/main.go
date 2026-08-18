@@ -60,6 +60,7 @@ func run(ctx context.Context) error {
 			Service:  service,
 			Language: settings.Options.TargetLanguage,
 			Review:   !settings.Submit,
+			Vim:      settings.Vim,
 		}),
 		tea.WithContext(ctx),
 		tea.WithAltScreen(),

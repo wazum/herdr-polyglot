@@ -15,9 +15,12 @@ tool.
 │ ╭──────────────────────────────────────────╮ │
 │ │ Bitte behebe den fehlschlagenden Test    │ │
 │ ╰──────────────────────────────────────────╯ │
-│ enter send · alt+enter newline · esc cancel  │
+│ INSERT  ctrl+d send · esc normal · enter …   │
 ╰──────────────────────────────────────────────╯
 ```
+
+Sending is deliberate: `ctrl+d` (or `alt+enter`) translates and delivers, while
+`enter` stays what it should be inside a text box — a new line.
 
 ## Install
 
@@ -44,6 +47,7 @@ echo "HERDR_POLYGLOT_API_KEY=your-deepl-key" \
 | `HERDR_POLYGLOT_LANGUAGE` | Target language, `EN-US` by default |
 | `HERDR_POLYGLOT_ENDPOINT` | Override the service endpoint |
 | `HERDR_POLYGLOT_SUBMIT` | `0` types the prompt without sending it |
+| `HERDR_POLYGLOT_VIM` | `1` turns on the vim bindings described below |
 
 Every setting can also be passed as an environment variable, which wins over
 the `.env` file. With `HERDR_POLYGLOT_PROVIDER=dry-run` the overlay marks the
@@ -72,6 +76,26 @@ description = "write a prompt, review before sending"
 
 `prompt` sends the translated prompt straight to the agent. `compose` types it
 into the agent's input and leaves the final keystroke to you.
+
+## Vim bindings
+
+Off by default, since modal editing is a matter of taste. With
+`HERDR_POLYGLOT_VIM=1` the draft box becomes modal, and the footer shows which
+mode you are in. It covers what makes sense inside a text box — there are no
+files, buffers or windows here, so nothing that acts on them exists.
+
+| | |
+| --- | --- |
+| Modes | `esc` to normal, `i` `a` `I` `A` `o` `O` back to insert |
+| Motions | `h` `j` `k` `l`, `w` `b` `e`, `0` `^` `$`, `gg` `G`, arrow keys |
+| Delete | `x`, `dd`, `D`, `dw`, `db`, `d$`, `d0` |
+| Change | `cw`, `cc`, `C` |
+| Yank and paste | `yy`, `p`, `P` |
+| Undo | `u` |
+| Counts | `3j`, `2dd`, `3x` and so on |
+| Leaving | `ctrl+d` sends, `q` closes from normal mode, `ctrl+c` always closes |
+
+Without vim, the box is an ordinary text area and `esc` closes it.
 
 ## How it works
 

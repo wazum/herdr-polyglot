@@ -4,6 +4,8 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
+
+	"github.com/wazum/herdr-polyglot/internal/vimarea"
 )
 
 // The palette is adaptive so the overlay sits well on light and dark terminals.
@@ -19,6 +21,7 @@ var (
 	hintStyle   = lipgloss.NewStyle().Foreground(muted)
 	keyStyle    = lipgloss.NewStyle().Foreground(accent)
 	dangerStyle = lipgloss.NewStyle().Foreground(danger)
+	modeStyle   = lipgloss.NewStyle().Foreground(accent).Bold(true)
 
 	boxStyle = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
@@ -56,24 +59,32 @@ func (m Model) header(line int) string {
 }
 
 func (m Model) footer(line int) string {
+	mode := ""
+	if m.draft.Modal() {
+		mode = modeStyle.Render(m.draft.Mode().String()) + " "
+	}
+
 	switch {
 	case m.failure != nil:
-		return spread(dangerStyle.Render("✗ "+m.failure.Error()), hintStyle.Render("esc close"), line)
+		return spread(mode+dangerStyle.Render("✗ "+m.failure.Error()), hintStyle.Render("ctrl+c close"), line)
 	case m.stage == translating:
-		return m.spinner.View() + accentStyle.Render(" translating …")
+		return spread(mode+m.spinner.View()+accentStyle.Render(" translating …"), "", line)
 	default:
-		return keyHints()
+		return spread(mode+" "+m.keyHints(), "", line)
 	}
 }
 
-func keyHints() string {
-	hints := make([]string, 0, 4)
-	for _, hint := range [][2]string{
-		{"ctrl+d", "send"},
-		{"alt+enter", "send"},
-		{"enter", "newline"},
-		{"esc", "cancel"},
-	} {
+func (m Model) keyHints() string {
+	shown := [][2]string{{"ctrl+d", "send"}, {"enter", "newline"}, {"esc", "close"}}
+	switch {
+	case m.draft.Modal() && m.draft.Mode() == vimarea.Normal:
+		shown = [][2]string{{"ctrl+d", "send"}, {"i", "insert"}, {"q", "close"}}
+	case m.draft.Modal():
+		shown = [][2]string{{"ctrl+d", "send"}, {"esc", "normal"}, {"enter", "newline"}}
+	}
+
+	hints := make([]string, 0, len(shown))
+	for _, hint := range shown {
 		hints = append(hints, keyStyle.Render(hint[0])+hintStyle.Render(" "+hint[1]))
 	}
 	return strings.Join(hints, hintStyle.Render(" · "))

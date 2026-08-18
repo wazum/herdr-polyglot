@@ -39,7 +39,7 @@ linters:
           - gosec
           - unparam
       # Bubble Tea's interface takes and returns models by value.
-      - path: internal/overlay/
+      - path: internal/(overlay|vimarea)/
         linters:
           - gocritic
         text: hugeParam

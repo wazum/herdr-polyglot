@@ -8,9 +8,9 @@ import (
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textarea"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 
 	"github.com/wazum/herdr-polyglot/internal/promptflow"
+	"github.com/wazum/herdr-polyglot/internal/vimarea"
 )
 
 type Submitter interface {
@@ -22,6 +22,7 @@ type Options struct {
 	Language string
 	// Review says the prompt is only typed into the agent's input, not sent.
 	Review bool
+	Vim    bool
 }
 
 type stage int
@@ -43,7 +44,7 @@ type Model struct {
 	ctx       context.Context
 	submitter Submitter
 	options   Options
-	draft     textarea.Model
+	draft     vimarea.Model
 	spinner   spinner.Model
 	stage     stage
 	failure   error
@@ -51,13 +52,8 @@ type Model struct {
 }
 
 func New(ctx context.Context, submitter Submitter, options Options) Model {
-	draft := textarea.New()
-	draft.Placeholder = "Write your prompt in your own language …"
-	draft.ShowLineNumbers = false
-	draft.Prompt = ""
+	draft := vimarea.New(vimarea.WithVim(options.Vim))
 	draft.SetHeight(draftHeight)
-	draft.FocusedStyle.CursorLine = lipgloss.NewStyle()
-	draft.Focus()
 
 	working := spinner.New()
 	working.Spinner = spinner.Dot
@@ -126,7 +122,14 @@ func (m *Model) resize(contentWidth int) {
 
 func (m Model) handleKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch {
-	case key.Type == tea.KeyEsc, key.Type == tea.KeyCtrlC:
+	case key.Type == tea.KeyCtrlC:
+		return m, tea.Quit
+
+	case key.Type == tea.KeyEsc && !m.draft.Modal():
+		return m, tea.Quit
+
+	// q closes only from normal mode, where it cannot be part of a draft.
+	case key.String() == "q" && m.draft.Mode() == vimarea.Normal:
 		return m, tea.Quit
 
 	// Sending is deliberate; a bare enter belongs to the draft.

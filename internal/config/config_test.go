@@ -163,3 +163,26 @@ func TestLoadWithoutATargetFails(t *testing.T) {
 		t.Errorf("error %q does not name the target variable", err)
 	}
 }
+
+func TestVimBindingsAreOffUnlessAskedFor(t *testing.T) {
+	t.Parallel()
+
+	settings, err := config.Load(envFrom(map[string]string{"HERDR_POLYGLOT_TARGET": "w1:p3"}))
+	if err != nil {
+		t.Fatalf("Load returned unexpected error: %v", err)
+	}
+	if settings.Vim {
+		t.Error("Vim is true, want plain editing by default")
+	}
+
+	settings, err = config.Load(envFrom(map[string]string{
+		"HERDR_POLYGLOT_TARGET": "w1:p3",
+		"HERDR_POLYGLOT_VIM":    "1",
+	}))
+	if err != nil {
+		t.Fatalf("Load returned unexpected error: %v", err)
+	}
+	if !settings.Vim {
+		t.Error("Vim is false, want it enabled by HERDR_POLYGLOT_VIM=1")
+	}
+}

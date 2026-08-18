@@ -28,6 +28,16 @@ func (s stubTranslator) Translate(context.Context, string) (string, error) {
 	return s.english, s.err
 }
 
+type recordingTranslator struct {
+	english   string
+	seenDraft string
+}
+
+func (r *recordingTranslator) Translate(_ context.Context, draft string) (string, error) {
+	r.seenDraft = draft
+	return r.english, nil
+}
+
 type recordingTarget struct{ inserted []string }
 
 func (r *recordingTarget) Insert(_ context.Context, text string) error {
@@ -37,12 +47,23 @@ func (r *recordingTarget) Insert(_ context.Context, text string) error {
 
 func newOverlay(t *testing.T, translator promptflow.Translator, target promptflow.Target) *teatest.TestModel {
 	t.Helper()
+	return newOverlayWith(t, translator, target, overlay.Options{
+		Service:  "deepl",
+		Language: "EN-US",
+		Vim:      true,
+	})
+}
+
+func newOverlayWith(
+	t *testing.T,
+	translator promptflow.Translator,
+	target promptflow.Target,
+	options overlay.Options,
+) *teatest.TestModel {
+	t.Helper()
 	return teatest.NewTestModel(
 		t,
-		overlay.New(context.Background(), promptflow.New(translator, target), overlay.Options{
-			Service:  "deepl",
-			Language: "EN-US",
-		}),
+		overlay.New(context.Background(), promptflow.New(translator, target), options),
 		teatest.WithInitialTermSize(80, 20),
 	)
 }
@@ -55,7 +76,7 @@ func TestTheOverlayShowsWhichServiceAndLanguageItWillUse(t *testing.T) {
 		return bytes.Contains(out, []byte("deepl")) && bytes.Contains(out, []byte("EN-US"))
 	}, teatest.WithDuration(2*time.Second))
 
-	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyEsc})
+	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyCtrlC})
 	overlayUnderTest.WaitFinished(t, teatest.WithFinalTimeout(2*time.Second))
 }
 
@@ -73,13 +94,62 @@ func TestSubmittingADraftInsertsTheEnglishTranslationIntoTheTarget(t *testing.T)
 	}
 }
 
+func TestEscapeSwitchesToNormalModeInsteadOfClosing(t *testing.T) {
+	t.Parallel()
+	target := &recordingTarget{}
+
+	overlayUnderTest := newOverlay(t, stubTranslator{english: english}, target)
+	overlayUnderTest.Type("hallo")
+	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyEsc})
+
+	teatest.WaitFor(t, overlayUnderTest.Output(), func(out []byte) bool {
+		return bytes.Contains(out, []byte("NORMAL"))
+	}, teatest.WithDuration(2*time.Second))
+
+	if len(target.inserted) != 0 {
+		t.Errorf("target received %v, want nothing sent", target.inserted)
+	}
+
+	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyCtrlC})
+	overlayUnderTest.WaitFinished(t, teatest.WithFinalTimeout(2*time.Second))
+}
+
+func TestQClosesFromNormalMode(t *testing.T) {
+	t.Parallel()
+	target := &recordingTarget{}
+
+	overlayUnderTest := newOverlay(t, stubTranslator{english: english}, target)
+	overlayUnderTest.Type("hallo")
+	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyEsc})
+	overlayUnderTest.Type("q")
+	overlayUnderTest.WaitFinished(t, teatest.WithFinalTimeout(2*time.Second))
+
+	if len(target.inserted) != 0 {
+		t.Errorf("target received %v, want nothing sent", target.inserted)
+	}
+}
+
+func TestQIsJustTextWhileTyping(t *testing.T) {
+	t.Parallel()
+
+	overlayUnderTest := newOverlay(t, stubTranslator{english: english}, &recordingTarget{})
+	overlayUnderTest.Type("quatsch")
+
+	teatest.WaitFor(t, overlayUnderTest.Output(), func(out []byte) bool {
+		return bytes.Contains(out, []byte("quatsch"))
+	}, teatest.WithDuration(2*time.Second))
+
+	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyCtrlC})
+	overlayUnderTest.WaitFinished(t, teatest.WithFinalTimeout(2*time.Second))
+}
+
 func TestCancellingLeavesTheTargetUntouched(t *testing.T) {
 	t.Parallel()
 	target := &recordingTarget{}
 
 	overlayUnderTest := newOverlay(t, stubTranslator{english: english}, target)
 	overlayUnderTest.Type(draft)
-	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyEsc})
+	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyCtrlC})
 	overlayUnderTest.WaitFinished(t, teatest.WithFinalTimeout(2*time.Second))
 
 	if len(target.inserted) != 0 {
@@ -99,7 +169,7 @@ func TestAFailedTranslationKeepsTheOverlayOpenAndReportsWhy(t *testing.T) {
 		return bytes.Contains(out, []byte("deepl unreachable"))
 	}, teatest.WithDuration(2*time.Second))
 
-	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyEsc})
+	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyCtrlC})
 	overlayUnderTest.WaitFinished(t, teatest.WithFinalTimeout(2*time.Second))
 }
 
@@ -110,7 +180,7 @@ func TestABlankDraftIsNotSentAnywhere(t *testing.T) {
 
 	overlayUnderTest := newOverlay(t, translatorThatMustNotRun, target)
 	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyCtrlD})
-	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyEsc})
+	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyCtrlC})
 	overlayUnderTest.WaitFinished(t, teatest.WithFinalTimeout(2*time.Second))
 
 	if len(target.inserted) != 0 {
@@ -135,7 +205,7 @@ func TestEnterAddsALineInsteadOfSending(t *testing.T) {
 		t.Errorf("target received %v, want nothing sent by enter alone", target.inserted)
 	}
 
-	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyEsc})
+	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyCtrlC})
 	overlayUnderTest.WaitFinished(t, teatest.WithFinalTimeout(2*time.Second))
 }
 
@@ -150,5 +220,38 @@ func TestAltEnterAlsoSends(t *testing.T) {
 
 	if len(target.inserted) != 1 || target.inserted[0] != english {
 		t.Errorf("target received %v, want one insert of %q", target.inserted, english)
+	}
+}
+
+func TestADraftKeepsCharactersOutsideAscii(t *testing.T) {
+	t.Parallel()
+	const umlauts = "Bitte prüfe die Übersetzung: äöü ß — fertig"
+	translator := &recordingTranslator{english: english}
+
+	overlayUnderTest := newOverlay(t, translator, &recordingTarget{})
+	// Typed byte by byte, teatest would mangle multibyte runes.
+	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(umlauts)})
+	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyCtrlD})
+	overlayUnderTest.WaitFinished(t, teatest.WithFinalTimeout(2*time.Second))
+
+	if translator.seenDraft != umlauts {
+		t.Errorf("translator saw %q, want %q", translator.seenDraft, umlauts)
+	}
+}
+
+func TestWithoutVimEscapeClosesTheOverlay(t *testing.T) {
+	t.Parallel()
+	target := &recordingTarget{}
+
+	overlayUnderTest := newOverlayWith(t, stubTranslator{english: english}, target, overlay.Options{
+		Service:  "deepl",
+		Language: "EN-US",
+	})
+	overlayUnderTest.Type("hallo")
+	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyEsc})
+	overlayUnderTest.WaitFinished(t, teatest.WithFinalTimeout(2*time.Second))
+
+	if len(target.inserted) != 0 {
+		t.Errorf("target received %v, want nothing sent", target.inserted)
 	}
 }
