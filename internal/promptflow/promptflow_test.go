@@ -262,3 +262,31 @@ func TestUsageIsFoundThroughAWrappedService(t *testing.T) {
 		t.Errorf("Usage returned %+v, want 4321 used", spent)
 	}
 }
+
+// Writing means translating the same draft over and over, so previews go through
+// the translator that pays for each sentence once. Sending is one shot and takes
+// the plain one, whichever way live translation was switched on.
+func TestPreviewsAndSendsUseTheTranslatorsTheyAreGiven(t *testing.T) {
+	oneShot := &stubTranslator{english: "one shot"}
+	perSentence := &stubTranslator{english: "per sentence"}
+	target := &recordingTarget{}
+
+	flow := promptflow.New(oneShot, target, target,
+		promptflow.WithPreviewTranslator(perSentence))
+
+	preview, err := flow.Translate(context.Background(), "Bitte behebe den Test")
+	if err != nil {
+		t.Fatalf("Translate returned unexpected error: %v", err)
+	}
+	if preview != "per sentence" {
+		t.Errorf("a preview came from %q, want the preview translator", preview)
+	}
+
+	sent, err := flow.Submit(context.Background(), "Bitte behebe den Test", promptflow.Sending)
+	if err != nil {
+		t.Fatalf("Submit returned unexpected error: %v", err)
+	}
+	if sent != "one shot" {
+		t.Errorf("a send came from %q, want the plain translator", sent)
+	}
+}

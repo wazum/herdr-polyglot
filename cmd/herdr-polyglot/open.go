@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/wazum/herdr-polyglot/internal/config"
 	"github.com/wazum/herdr-polyglot/internal/herdr"
 	"github.com/wazum/herdr-polyglot/internal/overlay"
 )
@@ -32,33 +31,19 @@ func runOpen(ctx context.Context, args []string) error {
 		}
 	}
 
-	live := loadedLive()
 	socket := herdr.NewSocket(orDefault(os.Getenv(socketEnv), defaultSocketPath()))
 
 	_, err := socket.OpenPopup(ctx, herdr.Popup{
 		PluginID:   os.Getenv(pluginIDEnv),
 		Entrypoint: "overlay",
 		Width:      overlay.PopupWidth,
-		Height:     overlay.PopupHeight(live),
+		Height:     overlay.PopupHeight(),
 		Env: map[string]string{
 			"HERDR_POLYGLOT_TARGET": pane,
 			"HERDR_POLYGLOT_SUBMIT": submit,
 		},
 	})
 	return err
-}
-
-// loadedLive reads the stored settings to size the popup for the extra pane
-// live mode shows. The invoking pane stands in for the target, which these
-// settings do not need.
-func loadedLive() bool {
-	settings, err := config.Load(func(key string) string {
-		if key == "HERDR_POLYGLOT_TARGET" {
-			return os.Getenv(paneEnv)
-		}
-		return os.Getenv(key)
-	})
-	return err == nil && settings.Live
 }
 
 func defaultSocketPath() string {

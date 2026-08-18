@@ -72,11 +72,6 @@ func run(ctx context.Context) error {
 		}
 		return fmt.Errorf("%w; configure it in %s", err, settings.ConfigFile)
 	}
-	if settings.Live {
-		// Writing means translating the same draft again and again, so pay for
-		// each sentence once instead of for the whole draft every time.
-		translator = translation.Segmented(translator)
-	}
 
 	// Herdr closes a popup by hanging up on it. Ending on the signal instead of
 	// dying on it is what lets the draft be kept below.
@@ -87,6 +82,10 @@ func run(ctx context.Context) error {
 	flow := promptflow.New(translator,
 		herdr.NewAgentPrompt(runner, settings.Target),
 		herdr.NewPaneText(runner, settings.Target),
+		// Writing means translating the same draft again and again, so a preview
+		// pays for each sentence once. Live translation can be switched on at any
+		// time, so this is set up whether it starts on or off.
+		promptflow.WithPreviewTranslator(translation.Segmented(translator)),
 	)
 	program := tea.NewProgram(
 		overlay.New(ctx, flow, overlay.Options{

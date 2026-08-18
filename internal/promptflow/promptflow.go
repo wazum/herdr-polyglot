@@ -32,18 +32,34 @@ const (
 
 type Flow struct {
 	translator Translator
-	targets    map[Delivery]Target
+	// preview translates a draft that is still being written, which happens again
+	// after every pause. A translator that pays per sentence belongs here.
+	preview Translator
+	targets map[Delivery]Target
 }
 
-func New(translator Translator, sending, typing Target) *Flow {
-	return &Flow{
+type Option func(*Flow)
+
+// WithPreviewTranslator sets what translates a draft while it is written. Without
+// it, previews go the same way as a send.
+func WithPreviewTranslator(previewing Translator) Option {
+	return func(f *Flow) { f.preview = previewing }
+}
+
+func New(translator Translator, sending, typing Target, options ...Option) *Flow {
+	flow := &Flow{
 		translator: translator,
+		preview:    translator,
 		targets:    map[Delivery]Target{Sending: sending, Typing: typing},
 	}
+	for _, option := range options {
+		option(flow)
+	}
+	return flow
 }
 
 func (f *Flow) Submit(ctx context.Context, draft string, how Delivery) (string, error) {
-	translated, err := f.Translate(ctx, draft)
+	translated, err := f.translate(ctx, f.translator, draft)
 	if err != nil {
 		return "", err
 	}
@@ -53,11 +69,16 @@ func (f *Flow) Submit(ctx context.Context, draft string, how Delivery) (string, 
 	return translated, nil
 }
 
+// Translate is the draft on its way to being read, not sent.
 func (f *Flow) Translate(ctx context.Context, draft string) (string, error) {
+	return f.translate(ctx, f.preview, draft)
+}
+
+func (f *Flow) translate(ctx context.Context, translator Translator, draft string) (string, error) {
 	if strings.TrimSpace(draft) == "" {
 		return "", ErrBlankDraft
 	}
-	translated, err := f.translator.Translate(ctx, draft)
+	translated, err := translator.Translate(ctx, draft)
 	if err != nil {
 		return "", err
 	}
