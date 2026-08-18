@@ -125,8 +125,11 @@ type (
 	previewDueMsg   struct{ revision int }
 	previewReadyMsg struct {
 		request int
-		text    string
-		err     error
+		// of is the draft this translation was made from. Without it the
+		// translation could be paired with a draft it never belonged to.
+		of   string
+		text string
+		err  error
 	}
 )
 
@@ -156,7 +159,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case previewDueMsg:
-		if msg.revision != m.revision {
+		// Starting a translation while sending would spend a second call and
+		// leave the finished preview describing the wrong draft.
+		if msg.revision != m.revision || m.stage == translating {
 			return m, nil
 		}
 		return m.startPreview()
@@ -165,7 +170,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.request != m.requested {
 			return m, nil
 		}
-		m.preview, m.previewError = msg.text, msg.err
+		m.previewOf, m.preview, m.previewError = msg.of, msg.text, msg.err
 		return m, nil
 
 	case spinner.TickMsg:
@@ -231,14 +236,13 @@ func (m Model) startPreview() (tea.Model, tea.Cmd) {
 	draft := m.draft.Value()
 	m.requested++
 	request := m.requested
-	m.previewOf = draft
 
 	return m, func() tea.Msg {
 		translated, err := m.prompter.Translate(m.ctx, draft)
 		if errors.Is(err, promptflow.ErrBlankDraft) {
-			return previewReadyMsg{request: request}
+			return previewReadyMsg{request: request, of: draft}
 		}
-		return previewReadyMsg{request: request, text: translated, err: err}
+		return previewReadyMsg{request: request, of: draft, text: translated, err: err}
 	}
 }
 

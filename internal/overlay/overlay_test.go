@@ -411,3 +411,69 @@ func (c *countingTranslator) count() int {
 	defer c.mu.Unlock()
 	return c.calls
 }
+
+// A preview belongs to the draft it was made from. Pairing it with the draft
+// that merely started the newest request delivers the wrong prompt: the author
+// reads one thing and the agent receives another.
+func TestSendingWhileANewPreviewIsInFlightNeverDeliversTheOlderEnglish(t *testing.T) {
+	t.Parallel()
+	translator := &slowSecondTranslator{
+		first:   "Do not delete the database",
+		second:  "Do not delete the database, delete it after all",
+		blocked: make(chan struct{}),
+		release: make(chan struct{}),
+	}
+	target := &recordingTarget{}
+
+	overlayUnderTest := newOverlayWith(t, translator, target, overlay.Options{
+		Service:  "deepl",
+		Language: "EN-US",
+		Live:     true,
+		Debounce: 20 * time.Millisecond,
+	})
+
+	overlayUnderTest.Type("Loesche die Datenbank nicht")
+	teatest.WaitFor(t, overlayUnderTest.Output(), func(out []byte) bool {
+		return bytes.Contains(out, []byte("Do not delete the database"))
+	}, teatest.WithDuration(3*time.Second))
+
+	// The draft changes; the second translation starts but has not answered.
+	overlayUnderTest.Type(". Loesche sie doch")
+	<-translator.blocked
+
+	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyCtrlD})
+	close(translator.release)
+	overlayUnderTest.WaitFinished(t, teatest.WithFinalTimeout(3*time.Second))
+
+	if len(target.inserted) != 1 {
+		t.Fatalf("target received %v, want exactly one delivery", target.inserted)
+	}
+	if delivered := target.inserted[0]; delivered == translator.first {
+		t.Errorf("delivered %q, which was translated from the earlier draft", delivered)
+	}
+}
+
+type slowSecondTranslator struct {
+	mu      sync.Mutex
+	calls   int
+	first   string
+	second  string
+	blocked chan struct{}
+	release chan struct{}
+}
+
+func (s *slowSecondTranslator) Translate(_ context.Context, _ string) (string, error) {
+	s.mu.Lock()
+	s.calls++
+	call := s.calls
+	s.mu.Unlock()
+
+	if call == 1 {
+		return s.first, nil
+	}
+	if call == 2 {
+		close(s.blocked)
+		<-s.release
+	}
+	return s.second, nil
+}
