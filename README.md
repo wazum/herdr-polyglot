@@ -62,6 +62,8 @@ by itself.
 | `HERDR_POLYGLOT_SUBMIT` | `0` types the prompt without sending it |
 | `HERDR_POLYGLOT_VIM` | `1` turns on the vim bindings described below |
 | `HERDR_POLYGLOT_LIVE` | `1` translates while you write, see below |
+| `HERDR_POLYGLOT_CONFIRM` | `1` shows the English and waits for a second `ctrl+d` |
+| `HERDR_POLYGLOT_KEEP_DRAFT` | `0` starts from an empty box instead of resuming |
 
 Every setting can also be passed as an environment variable, which wins over
 the `.env` file. With `HERDR_POLYGLOT_PROVIDER=dry-run` the overlay marks the
@@ -90,6 +92,40 @@ description = "write a prompt, review before sending"
 
 `prompt` sends the translated prompt straight to the agent. `compose` types it
 into the agent's input and leaves the final keystroke to you.
+
+## In the popup
+
+| | |
+| --- | --- |
+| `ctrl+d` | translate and send (`alt+enter` does the same) |
+| `enter` | a new line, because a prompt is often more than one |
+| `esc` | close, or leave insert mode when vim bindings are on |
+| `q` | close, from normal mode |
+| `ctrl+u` | throw the draft away, as it clears a line in a shell |
+| `ctrl+c` | close, always |
+
+With vim bindings on, `esc` goes to normal mode, and from there `esc` closes only
+when the draft is empty — otherwise it stays put rather than throw away writing,
+and `q` closes.
+
+## An unfinished prompt is kept
+
+Closing the popup does not lose the draft. It is written to the plugin's own
+state directory, one file per pane, readable only by you, and comes back the next
+time you open the popup there — the header says `resumed` until you type, and
+`ctrl+u` throws it away. A sent prompt is forgotten immediately.
+
+Since a draft is unfinished thinking about your code, it sits on disk until sent
+or discarded. `HERDR_POLYGLOT_KEEP_DRAFT=0` turns that off and always starts from
+an empty box. Herdr decides where the files go and tells the plugin through
+`HERDR_PLUGIN_STATE_DIR`, alongside the config directory that `herdr plugin
+config-dir wazum.polyglot` prints.
+
+## Reading the English before it goes
+
+`HERDR_POLYGLOT_CONFIRM=1` puts a stop between translating and sending: `ctrl+d`
+shows the English, a second `ctrl+d` delivers it, and `esc` goes back to writing.
+It costs one translation, not two, and pairs well with live translation off.
 
 ## Live translation
 
