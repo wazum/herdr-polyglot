@@ -35,7 +35,10 @@ type Flow struct {
 	// preview translates a draft that is still being written, which happens again
 	// after every pause. A translator that pays per sentence belongs here.
 	preview Translator
-	targets map[Delivery]Target
+	// There are two ways a prompt reaches an agent and no more, so they are two
+	// fields rather than a map that could hold a third.
+	sender Target
+	typer  Target
 }
 
 type Option func(*Flow)
@@ -50,7 +53,8 @@ func New(translator Translator, sending, typing Target, options ...Option) *Flow
 	flow := &Flow{
 		translator: translator,
 		preview:    translator,
-		targets:    map[Delivery]Target{Sending: sending, Typing: typing},
+		sender:     sending,
+		typer:      typing,
 	}
 	for _, option := range options {
 		option(flow)
@@ -110,16 +114,23 @@ func (f *Flow) Deliver(ctx context.Context, text string, how Delivery) error {
 		return ErrBlankDraft
 	}
 
-	target, known := f.targets[how]
-	if !known {
+	switch how {
+	case Sending:
+		return f.sender.Insert(ctx, prompt)
+	case Typing:
+		return f.typer.Insert(ctx, prompt)
+	default:
 		return fmt.Errorf("no way to deliver a prompt as %v", how)
 	}
-	return target.Insert(ctx, prompt)
 }
 
 func (d Delivery) String() string {
-	if d == Typing {
+	switch d {
+	case Sending:
+		return "sending"
+	case Typing:
 		return "typing"
+	default:
+		return fmt.Sprintf("delivery(%d)", int(d))
 	}
-	return "sending"
 }

@@ -290,3 +290,25 @@ func TestPreviewsAndSendsUseTheTranslatorsTheyAreGiven(t *testing.T) {
 		t.Errorf("a send came from %q, want the plain translator", sent)
 	}
 }
+
+// A delivery nobody defined is a bug worth seeing in a message, not something to
+// be quietly treated as sending a prompt to an agent.
+func TestAnUnknownDeliveryIsNotSilentlyTakenForSending(t *testing.T) {
+	const invented = promptflow.Delivery(7)
+
+	if named := invented.String(); named == "sending" || named == "typing" {
+		t.Errorf("Delivery(7) calls itself %q, want it to say it is neither", named)
+	}
+
+	translator := &stubTranslator{english: "Please fix the failing test"}
+	target := &recordingTarget{}
+
+	_, err := promptflow.New(translator, target, target).
+		Submit(context.Background(), "Bitte behebe den Test", invented)
+	if err == nil {
+		t.Error("Submit accepted a delivery that does not exist")
+	}
+	if len(target.inserted) != 0 {
+		t.Errorf("target received %v, want nothing for a delivery that does not exist", target.inserted)
+	}
+}
