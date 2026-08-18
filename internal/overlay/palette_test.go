@@ -23,7 +23,7 @@ func TestTheOverlayPaintsWithTheTerminalPaletteOnly(t *testing.T) {
 	lipgloss.SetColorProfile(termenv.TrueColor)
 	defer lipgloss.SetColorProfile(previous)
 
-	flow := promptflow.New(stubTranslator{english: english}, &recordingTarget{})
+	flow := promptflow.New(stubTranslator{english: english}, &recordingTarget{}, &recordingTarget{})
 	var model tea.Model = overlay.New(context.Background(), flow, overlay.Options{
 		Service: "deepl", Language: "EN-US", Vim: true, Live: true,
 	})
@@ -39,7 +39,7 @@ func TestTheOverlayPaintsWithTheTerminalPaletteOnly(t *testing.T) {
 
 func TestThePopupIsTallEnoughToLeaveTheDraftItsFullHeight(t *testing.T) {
 	for _, live := range []bool{false, true} {
-		flow := promptflow.New(stubTranslator{english: english}, &recordingTarget{})
+		flow := promptflow.New(stubTranslator{english: english}, &recordingTarget{}, &recordingTarget{})
 		var model tea.Model = overlay.New(context.Background(), flow, overlay.Options{
 			Service: "deepl", Language: "EN-US", Vim: true, Live: live,
 		})
@@ -62,7 +62,7 @@ func TestTheOverlayNeverSetsABackground(t *testing.T) {
 	lipgloss.SetColorProfile(termenv.TrueColor)
 	defer lipgloss.SetColorProfile(previous)
 
-	flow := promptflow.New(stubTranslator{english: english}, &recordingTarget{})
+	flow := promptflow.New(stubTranslator{english: english}, &recordingTarget{}, &recordingTarget{})
 	var model tea.Model = overlay.New(context.Background(), flow, overlay.Options{
 		Service: "deepl", Language: "EN-US", Vim: true, Live: true, Pulse: true,
 	})

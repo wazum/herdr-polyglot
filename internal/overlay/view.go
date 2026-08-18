@@ -7,6 +7,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 
+	"github.com/wazum/herdr-polyglot/internal/promptflow"
 	"github.com/wazum/herdr-polyglot/internal/translation"
 	"github.com/wazum/herdr-polyglot/internal/vimarea"
 )
@@ -61,6 +62,11 @@ func (m Model) badge() string {
 	}
 
 	pieces = append(pieces, m.styles.badge.Render("· "+m.destination()))
+	if !m.options.Live && m.options.Pulse {
+		// Live is off, so nothing breathes; the key that turns it on is worth
+		// having in sight instead.
+		pieces = append(pieces, m.styles.badge.Render("· ctrl+l live"))
+	}
 	if m.resumed {
 		pieces = append(pieces, m.styles.badge.Render("· resumed"))
 	}
@@ -71,8 +77,8 @@ func (m Model) badge() string {
 }
 
 func (m Model) destination() string {
-	if m.options.Review {
-		return "review"
+	if m.delivery == promptflow.Typing {
+		return "type"
 	}
 	return "send"
 }
@@ -106,12 +112,17 @@ func (m Model) footer(line int) string {
 }
 
 func (m Model) keyHints() string {
-	shown := [][2]string{{"ctrl+d", "send"}, {"enter", "newline"}, {"esc", "close"}}
+	send := [2]string{"ctrl+d", "send"}
+	if m.delivery == promptflow.Typing {
+		send = [2]string{"ctrl+d", "type"}
+	}
+
+	shown := [][2]string{send, {"ctrl+r", m.otherDelivery()}, {"esc", "close"}}
 	switch {
 	case m.draft.Modal() && m.draft.Mode() == vimarea.Normal:
-		shown = [][2]string{{"ctrl+d", "send"}, {"i", "insert"}, {"q", "close"}}
+		shown = [][2]string{send, {"ctrl+r", m.otherDelivery()}, {"i", "insert"}, {"q", "close"}}
 	case m.draft.Modal():
-		shown = [][2]string{{"ctrl+d", "send"}, {"esc", "normal"}, {"enter", "newline"}}
+		shown = [][2]string{send, {"ctrl+r", m.otherDelivery()}, {"esc", "normal"}}
 	}
 	if m.resumed {
 		shown = append(shown, [2]string{"ctrl+u", "discard"})
@@ -156,4 +167,11 @@ func compactCount(count int64) string {
 func trimZero(value float64) string {
 	rendered := strconv.FormatFloat(value, 'f', 1, 64)
 	return strings.TrimSuffix(rendered, ".0")
+}
+
+func (m Model) otherDelivery() string {
+	if m.delivery == promptflow.Typing {
+		return "send instead"
+	}
+	return "type instead"
 }

@@ -67,7 +67,7 @@ func newOverlayWith(
 	t.Helper()
 	return teatest.NewTestModel(
 		t,
-		overlay.New(context.Background(), promptflow.New(translator, target), options),
+		overlay.New(context.Background(), promptflow.New(translator, target, target), options),
 		teatest.WithInitialTermSize(80, 20),
 	)
 }
@@ -1101,6 +1101,84 @@ func TestAFastTranslationStillShowsAWholeBreath(t *testing.T) {
 		}
 		return len(seen) >= 5
 	}, teatest.WithDuration(4*time.Second))
+
+	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyCtrlC})
+	overlayUnderTest.WaitFinished(t, teatest.WithFinalTimeout(2*time.Second))
+}
+
+func switchableOverlay(t *testing.T, sending, typing promptflow.Target, options overlay.Options) *teatest.TestModel {
+	t.Helper()
+	flow := promptflow.New(stubTranslator{english: english}, sending, typing)
+	options.Service, options.Language = "deepl", "EN-US"
+	return teatest.NewTestModel(t, overlay.New(context.Background(), flow, options),
+		teatest.WithInitialTermSize(87, 17))
+}
+
+// Whether a prompt is sent or only typed is easier to decide once the draft is
+// written, so the key is in the popup rather than in the keybinding.
+func TestCtrlRSwitchesToTypingWithoutSending(t *testing.T) {
+	t.Parallel()
+	sending, typing := &recordingTarget{}, &recordingTarget{}
+
+	overlayUnderTest := switchableOverlay(t, sending, typing, overlay.Options{})
+	overlayUnderTest.Type(draft)
+	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyCtrlR})
+
+	teatest.WaitFor(t, overlayUnderTest.Output(), func(out []byte) bool {
+		return bytes.Contains(out, []byte("· type"))
+	}, teatest.WithDuration(2*time.Second))
+
+	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyCtrlD})
+	overlayUnderTest.WaitFinished(t, teatest.WithFinalTimeout(3*time.Second))
+
+	if len(typing.inserted) != 1 || typing.inserted[0] != english {
+		t.Errorf("the typing target received %v, want the prompt", typing.inserted)
+	}
+	if len(sending.inserted) != 0 {
+		t.Errorf("the sending target received %v, want nothing", sending.inserted)
+	}
+}
+
+func TestCtrlRSwitchesBackToSending(t *testing.T) {
+	t.Parallel()
+	sending, typing := &recordingTarget{}, &recordingTarget{}
+
+	overlayUnderTest := switchableOverlay(t, sending, typing, overlay.Options{Review: true})
+	overlayUnderTest.Type(draft)
+	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyCtrlR})
+	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyCtrlD})
+	overlayUnderTest.WaitFinished(t, teatest.WithFinalTimeout(3*time.Second))
+
+	if len(sending.inserted) != 1 {
+		t.Errorf("the sending target received %v, want the prompt", sending.inserted)
+	}
+	if len(typing.inserted) != 0 {
+		t.Errorf("the typing target received %v, want nothing", typing.inserted)
+	}
+}
+
+// Live translation costs characters, so it can be turned on for one prompt.
+func TestCtrlLTurnsLiveTranslationOnForThisPrompt(t *testing.T) {
+	t.Parallel()
+	translator := &countingTranslator{english: english}
+	flow := promptflow.New(translator, &recordingTarget{}, &recordingTarget{})
+
+	overlayUnderTest := teatest.NewTestModel(t,
+		overlay.New(context.Background(), flow, overlay.Options{
+			Service: "deepl", Language: "EN-US", Debounce: 20 * time.Millisecond,
+		}),
+		teatest.WithInitialTermSize(87, 17))
+
+	overlayUnderTest.Type("Bitte behebe")
+	time.Sleep(300 * time.Millisecond)
+	if calls := translator.count(); calls != 0 {
+		t.Fatalf("the translator ran %d times with live off", calls)
+	}
+
+	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyCtrlL})
+	teatest.WaitFor(t, overlayUnderTest.Output(), func(out []byte) bool {
+		return bytes.Contains(out, []byte(english))
+	}, teatest.WithDuration(3*time.Second))
 
 	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyCtrlC})
 	overlayUnderTest.WaitFinished(t, teatest.WithFinalTimeout(2*time.Second))

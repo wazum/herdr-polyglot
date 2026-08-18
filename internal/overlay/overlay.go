@@ -21,9 +21,9 @@ import (
 // Prompter is the draft's way out: translated for reading, delivered for the
 // agent, or both at once when nothing has been previewed.
 type Prompter interface {
-	Submit(ctx context.Context, draft string) (string, error)
+	Submit(ctx context.Context, draft string, how promptflow.Delivery) (string, error)
 	Translate(ctx context.Context, draft string) (string, error)
-	Deliver(ctx context.Context, text string) error
+	Deliver(ctx context.Context, text string, how promptflow.Delivery) error
 	Usage(ctx context.Context) (translation.Usage, bool, error)
 }
 
@@ -128,6 +128,9 @@ type Model struct {
 	cancelPreview context.CancelFunc
 	// resumed says the draft on screen was written in an earlier session, which
 	// is worth saying until the author takes it over.
+	// delivery can be changed while writing: the choice between sending and only
+	// typing is easier to make once the English is there to read.
+	delivery        promptflow.Delivery
 	resumed         bool
 	spent           translation.Usage
 	spentKnown      bool
@@ -165,6 +168,7 @@ func New(ctx context.Context, prompter Prompter, options Options) Model {
 		styles:   look,
 		draft:    draft,
 		spinner:  working,
+		delivery: deliveryFor(options.Review),
 	}
 	model.resize(maxContentWidth)
 	if options.Drafts != nil {
@@ -296,6 +300,40 @@ func (m *Model) resize(contentWidth int) {
 	m.draft.SetHeight(m.draftRows())
 }
 
+func deliveryFor(review bool) promptflow.Delivery {
+	if review {
+		return promptflow.Typing
+	}
+	return promptflow.Sending
+}
+
+// switchDelivery is ctrl+r: whether the prompt is sent or only typed is a
+// decision worth making once the English can be read, not when the popup opens.
+func (m Model) switchDelivery() Model {
+	if m.delivery == promptflow.Sending {
+		m.delivery = promptflow.Typing
+	} else {
+		m.delivery = promptflow.Sending
+	}
+	return m
+}
+
+// switchLive is ctrl+l: translating while writing costs characters, so it can be
+// turned on for a sentence that needs watching and off again.
+func (m Model) switchLive() (Model, tea.Cmd) {
+	m.options.Live = !m.options.Live
+	m.resize(m.pane.Width - draftFrame)
+
+	if !m.options.Live {
+		m.stopPreview()
+		m.pulsing = false
+		return m, nil
+	}
+
+	m.revision++
+	return m, m.schedulePreview()
+}
+
 func (m Model) draftRows() int {
 	if m.pane.Height <= 0 {
 		return draftHeight
@@ -339,6 +377,12 @@ func (m Model) handleKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// q closes only from normal mode, where it cannot be part of a draft.
 	case key.String() == "q" && m.draft.Mode() == vimarea.Normal:
 		return m.close()
+
+	case key.Type == tea.KeyCtrlR:
+		return m.switchDelivery(), nil
+
+	case key.Type == tea.KeyCtrlL:
+		return m.switchLive()
 
 	// ctrl+u clears the whole draft, as it clears a line in a shell. The text
 	// area would otherwise use it to delete back to the line start.
@@ -429,7 +473,7 @@ func (m Model) deliverPreview() (tea.Model, tea.Cmd) {
 	m.stage = translating
 
 	return m, tea.Batch(m.spinner.Tick, func() tea.Msg {
-		if err := m.prompter.Deliver(m.ctx, prompt); err != nil {
+		if err := m.prompter.Deliver(m.ctx, prompt, m.delivery); err != nil {
 			return submitFailedMsg{err: err}
 		}
 		return promptSentMsg{}
@@ -469,7 +513,7 @@ func (m Model) startSubmit() (tea.Model, tea.Cmd) {
 	if m.previewIsCurrent() {
 		preview := m.preview
 		return m, tea.Batch(m.spinner.Tick, func() tea.Msg {
-			if err := m.prompter.Deliver(m.ctx, preview); err != nil {
+			if err := m.prompter.Deliver(m.ctx, preview, m.delivery); err != nil {
 				return submitFailedMsg{err: err}
 			}
 			return promptSentMsg{}
@@ -477,7 +521,7 @@ func (m Model) startSubmit() (tea.Model, tea.Cmd) {
 	}
 
 	return m, tea.Batch(m.spinner.Tick, func() tea.Msg {
-		switch _, err := m.prompter.Submit(m.ctx, draft); {
+		switch _, err := m.prompter.Submit(m.ctx, draft, m.delivery); {
 		case errors.Is(err, promptflow.ErrBlankDraft):
 			return blankDraftMsg{}
 		case err != nil:
