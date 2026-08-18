@@ -49,10 +49,15 @@ type Model struct {
 	stage     stage
 	failure   error
 	width     int
+	height    int
 }
 
 func New(ctx context.Context, submitter Submitter, options Options) Model {
-	draft := vimarea.New(vimarea.WithVim(options.Vim))
+	draft := vimarea.New(
+		vimarea.WithVim(options.Vim),
+		vimarea.WithPlaceholder("Write your prompt in your own language …"),
+		vimarea.WithStyles(textStyle, placeholderStyle, cursorStyle),
+	)
 	draft.SetHeight(draftHeight)
 
 	working := spinner.New()
@@ -83,6 +88,7 @@ func (m Model) Init() tea.Cmd {
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
+		m.height = msg.Height
 		m.resize(msg.Width - 6)
 		return m, nil
 

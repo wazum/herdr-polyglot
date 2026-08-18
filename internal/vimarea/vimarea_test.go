@@ -1,9 +1,12 @@
 package vimarea_test
 
 import (
+	"strings"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
+	"github.com/muesli/termenv"
 
 	"github.com/wazum/herdr-polyglot/internal/vimarea"
 )
@@ -357,5 +360,28 @@ func TestPastingWorksWithoutVimBindings(t *testing.T) {
 
 	if area.Value() != "eins\nzwei" {
 		t.Errorf("value is %q, want the pasted text", area.Value())
+	}
+}
+
+// The text area keeps an internal pointer to whichever style set is active, so
+// styles must be applied before it is focused or they are silently ignored.
+func TestTheConfiguredStylesReachTheRenderedDraft(t *testing.T) {
+	previous := lipgloss.ColorProfile()
+	lipgloss.SetColorProfile(termenv.TrueColor)
+	defer lipgloss.SetColorProfile(previous)
+
+	area := vimarea.New(
+		vimarea.WithPlaceholder("Schreib etwas …"),
+		vimarea.WithStyles(
+			lipgloss.NewStyle().Foreground(lipgloss.Color("#E6E6F0")),
+			lipgloss.NewStyle().Foreground(lipgloss.Color("#8A8FA3")),
+			lipgloss.NewStyle().Foreground(lipgloss.Color("#B79BFF")),
+		),
+	)
+	area.SetWidth(40)
+	area.SetHeight(3)
+
+	if rendered := area.View(); strings.Contains(rendered, "\x1b[40m") {
+		t.Errorf("rendered draft paints a black background:\n%q", rendered)
 	}
 }

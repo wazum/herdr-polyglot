@@ -8,6 +8,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/textarea"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
 type Mode int
@@ -32,6 +33,25 @@ func WithVim(enabled bool) Option {
 	return func(m *Model) { m.modal = enabled }
 }
 
+func WithPlaceholder(text string) Option {
+	return func(m *Model) { m.area.Placeholder = text }
+}
+
+func WithStyles(text, placeholder, cursor lipgloss.Style) Option {
+	return func(m *Model) {
+		for _, styles := range []*textarea.Style{&m.area.FocusedStyle, &m.area.BlurredStyle} {
+			styles.Base = lipgloss.NewStyle()
+			// The default highlights the cursor's line, which reads as a dark
+			// bar inside a bordered box.
+			styles.CursorLine = text
+			styles.EndOfBuffer = lipgloss.NewStyle()
+			styles.Text = text
+			styles.Placeholder = placeholder
+		}
+		m.area.Cursor.Style = cursor
+	}
+}
+
 type Model struct {
 	area     textarea.Model
 	modal    bool
@@ -46,12 +66,14 @@ func New(options ...Option) Model {
 	area := textarea.New()
 	area.ShowLineNumbers = false
 	area.Prompt = ""
-	area.Focus()
 
 	model := Model{area: area, mode: Insert}
 	for _, option := range options {
 		option(&model)
 	}
+	// Focus last: it stores a pointer into the struct it is called on, so any
+	// style set afterwards, or any copy of the struct, would be ignored.
+	model.area.Focus()
 	return model
 }
 

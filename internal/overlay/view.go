@@ -15,13 +15,18 @@ var (
 	danger = lipgloss.AdaptiveColor{Light: "#B3261E", Dark: "#FF8A80"}
 	frame  = lipgloss.AdaptiveColor{Light: "#C9C4E0", Dark: "#4A4566"}
 
-	accentStyle = lipgloss.NewStyle().Foreground(accent)
-	titleStyle  = lipgloss.NewStyle().Foreground(accent).Bold(true)
-	badgeStyle  = lipgloss.NewStyle().Foreground(muted)
-	hintStyle   = lipgloss.NewStyle().Foreground(muted)
-	keyStyle    = lipgloss.NewStyle().Foreground(accent)
-	dangerStyle = lipgloss.NewStyle().Foreground(danger)
-	modeStyle   = lipgloss.NewStyle().Foreground(accent).Bold(true)
+	text = lipgloss.AdaptiveColor{Light: "#1F2430", Dark: "#E6E6F0"}
+
+	accentStyle      = lipgloss.NewStyle().Foreground(accent)
+	textStyle        = lipgloss.NewStyle().Foreground(text)
+	placeholderStyle = lipgloss.NewStyle().Foreground(muted)
+	cursorStyle      = lipgloss.NewStyle().Foreground(accent)
+	titleStyle       = lipgloss.NewStyle().Foreground(accent).Bold(true)
+	badgeStyle       = lipgloss.NewStyle().Foreground(muted)
+	hintStyle        = lipgloss.NewStyle().Foreground(muted)
+	keyStyle         = lipgloss.NewStyle().Foreground(accent)
+	dangerStyle      = lipgloss.NewStyle().Foreground(danger)
+	modeStyle        = lipgloss.NewStyle().Foreground(accent).Bold(true)
 
 	boxStyle = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
@@ -38,12 +43,16 @@ func (m Model) View() string {
 	draft := draftBoxStyle.Width(m.width).Render(m.draft.View())
 	line := lipgloss.Width(draft)
 
-	return boxStyle.Render(lipgloss.JoinVertical(
+	dialog := boxStyle.Render(lipgloss.JoinVertical(
 		lipgloss.Left,
 		m.header(line),
 		draft,
 		m.footer(line),
 	))
+	if m.height <= lipgloss.Height(dialog) {
+		return dialog
+	}
+	return lipgloss.Place(lipgloss.Width(dialog), m.height, lipgloss.Left, lipgloss.Center, dialog)
 }
 
 func (m Model) header(line int) string {

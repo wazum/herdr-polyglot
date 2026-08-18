@@ -255,3 +255,16 @@ func TestWithoutVimEscapeClosesTheOverlay(t *testing.T) {
 		t.Errorf("target received %v, want nothing sent", target.inserted)
 	}
 }
+
+func TestAnEmptyDraftShowsWhatToDo(t *testing.T) {
+	t.Parallel()
+
+	overlayUnderTest := newOverlay(t, stubTranslator{english: english}, &recordingTarget{})
+
+	teatest.WaitFor(t, overlayUnderTest.Output(), func(out []byte) bool {
+		return bytes.Contains(out, []byte("own language"))
+	}, teatest.WithDuration(2*time.Second))
+
+	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyCtrlC})
+	overlayUnderTest.WaitFinished(t, teatest.WithFinalTimeout(2*time.Second))
+}
