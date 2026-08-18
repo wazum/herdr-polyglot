@@ -82,18 +82,21 @@ func run(ctx context.Context) error {
 	flow := promptflow.New(translator, target(settings.HerdrBinary, settings.Target, settings.Submit))
 	program := tea.NewProgram(
 		overlay.New(ctx, flow, overlay.Options{
-			Service:  service,
-			Language: settings.Options.TargetLanguage,
-			Review:   !settings.Submit,
-			Vim:      settings.Vim,
-			Live:     settings.Live,
-			Confirm:  settings.Confirm,
-			Pulse:    settings.Pulse,
-			MaxDraft: settings.MaxDraft,
-			Drafts:   drafts(settings.KeepDraft, settings.StateDir, settings.Target),
+			Service:    service,
+			Language:   settings.Options.TargetLanguage,
+			Review:     !settings.Submit,
+			Vim:        settings.Vim,
+			Live:       settings.Live,
+			Confirm:    settings.Confirm,
+			Pulse:      settings.Pulse,
+			MaxDraft:   settings.MaxDraft,
+			Background: paneBackground(),
+			Drafts:     drafts(settings.KeepDraft, settings.StateDir, settings.Target),
 		}),
 		tea.WithContext(ctx),
-		tea.WithAltScreen(),
+		// No alternate screen: entering it clears the pane to the terminal's own
+		// background, which then differs from the popup herdr painted around it.
+		// Drawing inline leaves every cell we do not write as herdr left it.
 	)
 	if _, err := program.Run(); err != nil {
 		return fmt.Errorf("running overlay: %w", err)

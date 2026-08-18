@@ -54,32 +54,61 @@ func TestThePopupIsTallEnoughToLeaveTheDraftItsFullHeight(t *testing.T) {
 	}
 }
 
-// Whatever herdr paints behind the popup shows through any cell the overlay
-// leaves untouched, which reads as a stripe down one side.
-func TestTheOverlayCoversEveryCellOfItsPane(t *testing.T) {
+// Herdr paints the popup; a space of ours would cover that with this terminal's
+// own background and show as a seam. So no line is padded out.
+func TestTheOverlayDoesNotPaintOverWhatHerdrDrew(t *testing.T) {
 	previous := lipgloss.ColorProfile()
 	lipgloss.SetColorProfile(termenv.Ascii)
 	defer lipgloss.SetColorProfile(previous)
 
-	for _, pane := range []struct{ width, height int }{
-		{88, 15}, {90, 17}, {70, 12}, {120, 20},
-	} {
-		flow := promptflow.New(stubTranslator{english: english}, &recordingTarget{})
-		var model tea.Model = overlay.New(context.Background(), flow, overlay.Options{
-			Service: "deepl", Language: "EN-US", Vim: true, Live: true,
-		})
-		model, _ = model.Update(tea.WindowSizeMsg{Width: pane.width, Height: pane.height})
+	flow := promptflow.New(stubTranslator{english: english}, &recordingTarget{})
+	var model tea.Model = overlay.New(context.Background(), flow, overlay.Options{
+		Service: "deepl", Language: "EN-US", Vim: true, Live: true,
+	})
+	model, _ = model.Update(tea.WindowSizeMsg{Width: 87, Height: 17})
 
-		lines := strings.Split(model.View(), "\n")
-		if len(lines) != pane.height {
-			t.Errorf("pane %dx%d: drew %d rows, want every row covered",
-				pane.width, pane.height, len(lines))
+	lines := strings.Split(model.View(), "\n")
+	if len(lines) > 17 {
+		t.Errorf("drew %d rows into a pane of 17", len(lines))
+	}
+	for row, line := range lines {
+		if width := lipgloss.Width(line); width > 87 {
+			t.Errorf("row %d is %d columns wide, the pane is 87", row, width)
 		}
-		for row, line := range lines {
-			if width := lipgloss.Width(line); width != pane.width {
-				t.Errorf("pane %dx%d: row %d is %d columns, want %d",
-					pane.width, pane.height, row, width, pane.width)
-			}
+	}
+	if trailing := lines[len(lines)-1]; strings.HasSuffix(trailing, "  ") {
+		t.Errorf("the last row ends in padding: %q", trailing)
+	}
+}
+
+// Herdr paints the popup in its own colour and reports it when the terminal is
+// asked. Every cell the overlay draws has to carry that colour, or the content
+// reads as a patch of a different shade.
+func TestEveryCellCarriesTheColourHerdrPainted(t *testing.T) {
+	previous := lipgloss.ColorProfile()
+	lipgloss.SetColorProfile(termenv.TrueColor)
+	defer lipgloss.SetColorProfile(previous)
+
+	const painted = "#282c34"
+	flow := promptflow.New(stubTranslator{english: english}, &recordingTarget{})
+	var model tea.Model = overlay.New(context.Background(), flow, overlay.Options{
+		Service: "deepl", Language: "EN-US", Vim: true, Live: true, Pulse: true,
+		Background: painted,
+	})
+	model, _ = model.Update(tea.WindowSizeMsg{Width: 87, Height: 17})
+
+	// 40;2;40;44;52 is that colour as a background.
+	const asBackground = "48;2;40;44;52"
+	lines := strings.Split(model.View(), "\n")
+	if len(lines) != 17 {
+		t.Errorf("drew %d rows, want the pane's 17 filled", len(lines))
+	}
+	for row, line := range lines {
+		if !strings.Contains(line, asBackground) {
+			t.Errorf("row %d carries no background: %q", row, line)
+		}
+		if width := lipgloss.Width(line); width != 87 {
+			t.Errorf("row %d is %d columns, want the pane's 87", row, width)
 		}
 	}
 }

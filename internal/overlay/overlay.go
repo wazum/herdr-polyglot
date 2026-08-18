@@ -43,6 +43,10 @@ type Options struct {
 	MaxDraft int
 	// Pulse fills and empties a circle beside "live" while a translation runs.
 	Pulse bool
+	// Background is the colour herdr painted the popup, as the terminal reported
+	// it. Empty means it stayed silent, and then no cell is painted that does
+	// not have to be.
+	Background string
 	// Drafts keeps an unfinished prompt between sessions. Without one the draft
 	// simply goes when the popup closes.
 	Drafts Drafts
@@ -72,8 +76,13 @@ const (
 	defaultDebounce = 600 * time.Millisecond
 	defaultMaxDraft = 2_000
 
-	// PopupBorder is the frame herdr draws around a popup pane.
-	PopupBorder = 2
+	// Herdr keeps some of a popup for its own frame: measured against 0.8.0, a
+	// pane comes back three columns and two rows smaller than the size asked for.
+	popupChromeColumns = 3
+	popupChromeRows    = 2
+
+	// PopupBorder is what a caller must add to a wanted height.
+	PopupBorder = popupChromeRows
 
 	dialogRows  = 10 // heading, draft box and footer
 	englishRows = 5  // the pane holding the translation
@@ -103,6 +112,7 @@ type Model struct {
 	ctx      context.Context
 	prompter Prompter
 	options  Options
+	styles   styles
 	draft    vimarea.Model
 	spinner  spinner.Model
 	stage    stage
@@ -134,16 +144,18 @@ type Model struct {
 }
 
 func New(ctx context.Context, prompter Prompter, options Options) Model {
+	look := newStyles(options.Background)
+
 	draft := vimarea.New(
 		vimarea.WithVim(options.Vim),
 		vimarea.WithPlaceholder("Write your prompt in your own language …"),
-		vimarea.WithStyles(textStyle, placeholderStyle, cursorStyle),
+		vimarea.WithStyles(look.text, look.placeholder, look.cursor),
 	)
 	draft.SetHeight(draftHeight)
 
 	working := spinner.New()
 	working.Spinner = spinner.Dot
-	working.Style = accentStyle
+	working.Style = look.accent
 
 	if options.Debounce <= 0 {
 		options.Debounce = defaultDebounce
@@ -156,6 +168,7 @@ func New(ctx context.Context, prompter Prompter, options Options) Model {
 		ctx:      ctx,
 		prompter: prompter,
 		options:  options,
+		styles:   look,
 		draft:    draft,
 		spinner:  working,
 	}

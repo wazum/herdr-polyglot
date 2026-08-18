@@ -7,25 +7,33 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+type tone int
+
+const (
+	fadedTone tone = iota
+	accentTone
+	brightTone
+)
+
 // The circle grows and fades and grows again, held for a moment at each end, so
 // it reads as breathing rather than spinning. Brightness follows the size, which
 // is as close to a fade as the terminal palette gets.
 var breath = []struct {
 	glyph string
-	tone  lipgloss.Style
+	tone  tone
 }{
-	{"·", fadedStyle},
-	{"·", fadedStyle},
-	{"○", fadedStyle},
-	{"◔", accentStyle},
-	{"◑", accentStyle},
-	{"◕", brightStyle},
-	{"●", brightStyle},
-	{"●", brightStyle},
-	{"◕", brightStyle},
-	{"◑", accentStyle},
-	{"◔", accentStyle},
-	{"○", fadedStyle},
+	{"·", fadedTone},
+	{"·", fadedTone},
+	{"○", fadedTone},
+	{"◔", accentTone},
+	{"◑", accentTone},
+	{"◕", brightTone},
+	{"●", brightTone},
+	{"●", brightTone},
+	{"◕", brightTone},
+	{"◑", accentTone},
+	{"◔", accentTone},
+	{"○", fadedTone},
 }
 
 const breathStep = 120 * time.Millisecond
@@ -71,5 +79,16 @@ func (m Model) pulseGlyph() string {
 	if m.pulsing {
 		frame = breath[m.beat%len(breath)]
 	}
-	return frame.tone.Render(frame.glyph)
+	return m.toneStyle(frame.tone).Render(frame.glyph)
+}
+
+func (m Model) toneStyle(which tone) lipgloss.Style {
+	switch which {
+	case brightTone:
+		return m.styles.bright
+	case accentTone:
+		return m.styles.accent
+	default:
+		return m.styles.faded
+	}
 }
