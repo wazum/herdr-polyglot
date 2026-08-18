@@ -118,14 +118,15 @@ func TestEscapeSwitchesToNormalModeInsteadOfClosing(t *testing.T) {
 	overlayUnderTest.WaitFinished(t, teatest.WithFinalTimeout(2*time.Second))
 }
 
-func TestQClosesFromNormalMode(t *testing.T) {
+// Escape is the only way back out: once to leave insert mode, once to close.
+func TestEscapeTwiceClosesFromNormalMode(t *testing.T) {
 	t.Parallel()
 	target := &recordingTarget{}
 
 	overlayUnderTest := newOverlay(t, stubTranslator{english: english}, target)
 	overlayUnderTest.Type("hallo")
 	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyEsc})
-	overlayUnderTest.Type("q")
+	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyEsc})
 	overlayUnderTest.WaitFinished(t, teatest.WithFinalTimeout(2*time.Second))
 
 	if len(target.inserted) != 0 {
@@ -604,21 +605,21 @@ func TestEscapeClosesAnEmptyDraftFromNormalMode(t *testing.T) {
 	}
 }
 
-func TestEscapeKeepsAWrittenDraftOpen(t *testing.T) {
+// Escape closes on written work too, because closing keeps the draft.
+func TestEscapeClosesAWrittenDraftAndKeepsIt(t *testing.T) {
 	t.Parallel()
+	drafts := &fakeDrafts{}
 
-	overlayUnderTest := newOverlay(t, stubTranslator{english: english}, &recordingTarget{})
+	overlayUnderTest := newOverlayWith(t, stubTranslator{english: english}, &recordingTarget{},
+		overlay.Options{Service: "deepl", Language: "EN-US", Vim: true, Drafts: drafts})
 	overlayUnderTest.Type("Bitte behebe")
 	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyEsc})
 	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyEsc})
-
-	// Still there: escape must not throw away written work.
-	teatest.WaitFor(t, overlayUnderTest.Output(), func(out []byte) bool {
-		return bytes.Contains(out, []byte("Bitte behebe"))
-	}, teatest.WithDuration(2*time.Second))
-
-	overlayUnderTest.Type("q")
 	overlayUnderTest.WaitFinished(t, teatest.WithFinalTimeout(2*time.Second))
+
+	if len(drafts.saved) == 0 || drafts.saved[len(drafts.saved)-1] != "Bitte behebe" {
+		t.Errorf("the store was given %v, want the draft kept on the way out", drafts.saved)
+	}
 }
 
 type fakeDrafts struct {
@@ -672,7 +673,7 @@ func TestClosingKeepsTheDraftForNextTime(t *testing.T) {
 		overlay.Options{Service: "deepl", Language: "EN-US", Vim: true, Drafts: drafts})
 	overlayUnderTest.Type("Bitte behebe den Test")
 	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyEsc})
-	overlayUnderTest.Type("q")
+	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyEsc})
 	overlayUnderTest.WaitFinished(t, teatest.WithFinalTimeout(2*time.Second))
 
 	if len(drafts.saved) != 1 || drafts.saved[0] != "Bitte behebe den Test" {
@@ -710,7 +711,7 @@ func TestADraftThatCannotBeKeptIsNotSilentlyLost(t *testing.T) {
 		overlay.Options{Service: "deepl", Language: "EN-US", Vim: true, Drafts: drafts})
 	overlayUnderTest.Type("Bitte behebe den Test")
 	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyEsc})
-	overlayUnderTest.Type("q")
+	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyEsc})
 
 	teatest.WaitFor(t, overlayUnderTest.Output(), func(out []byte) bool {
 		return bytes.Contains(out, []byte("disk full"))

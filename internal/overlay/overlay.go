@@ -407,13 +407,9 @@ func (m Model) handleKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case key.Type == tea.KeyEsc && !m.draft.Modal():
 		return m.close()
 
-	// In normal mode there is nothing left for escape to do, so an empty draft
-	// closes. A written one stays: escape must not throw away work.
-	case key.Type == tea.KeyEsc && m.draft.Mode() == vimarea.Normal && m.draftIsBlank():
-		return m.close()
-
-	// q closes only from normal mode, where it cannot be part of a draft.
-	case key.String() == "q" && m.draft.Mode() == vimarea.Normal:
+	// Escape is the whole way out: insert mode first, then the popup. Nothing is
+	// lost by it, since closing keeps the draft.
+	case key.Type == tea.KeyEsc && m.draft.Mode() == vimarea.Normal:
 		return m.close()
 
 	case key.Type == tea.KeyCtrlR:
@@ -600,10 +596,6 @@ func (m Model) forgetDraft() {
 		// keeps what a plugin writes here in its log.
 		fmt.Fprintln(os.Stderr, "polyglot: the sent draft could not be forgotten:", err)
 	}
-}
-
-func (m Model) draftIsBlank() bool {
-	return strings.TrimSpace(m.draft.Value()) == ""
 }
 
 func (m Model) previewIsCurrent() bool {

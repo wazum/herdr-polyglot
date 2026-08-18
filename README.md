@@ -109,8 +109,7 @@ header says which it will be.
 | `ctrl+r` | switch between `send` and `paste` — the header says which one is next |
 | `ctrl+l` | turn live translation on or off for this prompt |
 | `enter` | a new line, because a prompt is often more than one |
-| `esc` | close, or go to normal mode when vim bindings are on |
-| `q` | close, from normal mode |
+| `esc` | close — with vim bindings on, first to normal mode, then close |
 | `ctrl+u` | throw the draft away, as it clears a line in a shell |
 | `ctrl+c` | close, always |
 
@@ -121,9 +120,8 @@ The header says what `ctrl+d` will do: `sends to agent` hands the prompt over an
 the agent starts working, `fills the input` only types it there and leaves the
 final keystroke to you.
 
-With vim bindings on, `esc` goes to normal mode, and from there `esc` closes only
-when the draft is empty — otherwise it stays put rather than throw away writing,
-and `q` closes.
+With vim bindings on, `esc` goes to normal mode and a second `esc` closes. Nothing
+is lost either way, because the draft is kept.
 
 ## An unfinished prompt is kept
 
@@ -200,7 +198,7 @@ files, buffers or windows here, so nothing that acts on them exists.
 | Yank and paste | `yy`, `p`, `P` |
 | Undo | `u` |
 | Counts | `3j`, `2dd`, `3x` and so on |
-| Leaving | `ctrl+d` sends, `q` closes from normal mode, `ctrl+c` always closes |
+| Leaving | `ctrl+d` sends, `esc` closes from normal mode, `ctrl+c` always closes |
 
 Without vim, the box is an ordinary text area and `esc` closes it.
 

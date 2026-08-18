@@ -158,7 +158,7 @@ func (m Model) keyHints() string {
 	// An arrow reads as "takes you to", which a bare mode name does not.
 	switch {
 	case m.draft.Modal() && m.draft.Mode() == vimarea.Normal:
-		shown = append(shown, [2]string{"i", "→ insert"}, [2]string{"q", "close"})
+		shown = append(shown, [2]string{"i", "→ insert"}, [2]string{"esc", "close"})
 	case m.draft.Modal():
 		shown = append(shown, [2]string{"ctrl+u", "clear"}, [2]string{"esc", "→ normal"})
 	default:
