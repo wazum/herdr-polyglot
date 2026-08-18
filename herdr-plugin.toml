@@ -8,6 +8,11 @@ description = "Write agent prompts in your own language and have them delivered 
 [[build]]
 command = ["bash", "herdr/install.sh"]
 
+# Run the binary once when the server starts, so the keypress that opens the
+# popup does not wait for the operating system to page it in for the first time.
+[[startup]]
+command = ["sh", "-c", "\"$HERDR_PLUGIN_ROOT/bin/herdr-polyglot\" warm"]
+
 # `polyglot open` puts the overlay in a floating popup over the pane the keybinding
 # was pressed in and passes that pane along as HERDR_POLYGLOT_TARGET, so the prompt
 # lands where it was written. Everything else comes from the environment or the

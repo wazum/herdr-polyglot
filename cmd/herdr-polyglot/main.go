@@ -20,12 +20,20 @@ import (
 )
 
 func main() {
-	if len(os.Args) > 1 && os.Args[1] == "open" {
-		if err := runOpen(context.Background(), os.Args[2:]); err != nil {
-			fmt.Fprintln(os.Stderr, "herdr-polyglot:", err)
-			os.Exit(1)
+	if len(os.Args) > 1 {
+		switch os.Args[1] {
+		case "open":
+			if err := runOpen(context.Background(), os.Args[2:]); err != nil {
+				fmt.Fprintln(os.Stderr, "herdr-polyglot:", err)
+				os.Exit(1)
+			}
+			return
+
+		// warm does nothing but exist: running it puts the binary in the page
+		// cache, so the keypress that opens the popup does not pay for that.
+		case "warm":
+			return
 		}
-		return
 	}
 
 	if err := run(context.Background()); err != nil {
