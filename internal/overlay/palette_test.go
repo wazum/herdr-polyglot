@@ -3,6 +3,7 @@ package overlay_test
 import (
 	"bytes"
 	"context"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -54,61 +55,49 @@ func TestThePopupIsTallEnoughToLeaveTheDraftItsFullHeight(t *testing.T) {
 	}
 }
 
-// Herdr paints the popup; a space of ours would cover that with this terminal's
-// own background and show as a seam. So no line is padded out.
-func TestTheOverlayDoesNotPaintOverWhatHerdrDrew(t *testing.T) {
-	previous := lipgloss.ColorProfile()
-	lipgloss.SetColorProfile(termenv.Ascii)
-	defer lipgloss.SetColorProfile(previous)
-
-	flow := promptflow.New(stubTranslator{english: english}, &recordingTarget{})
-	var model tea.Model = overlay.New(context.Background(), flow, overlay.Options{
-		Service: "deepl", Language: "EN-US", Vim: true, Live: true,
-	})
-	model, _ = model.Update(tea.WindowSizeMsg{Width: 87, Height: 17})
-
-	lines := strings.Split(model.View(), "\n")
-	if len(lines) > 17 {
-		t.Errorf("drew %d rows into a pane of 17", len(lines))
-	}
-	for row, line := range lines {
-		if width := lipgloss.Width(line); width > 87 {
-			t.Errorf("row %d is %d columns wide, the pane is 87", row, width)
-		}
-	}
-	if trailing := lines[len(lines)-1]; strings.HasSuffix(trailing, "  ") {
-		t.Errorf("the last row ends in padding: %q", trailing)
-	}
-}
-
-// Herdr paints the popup in its own colour and reports it when the terminal is
-// asked. Every cell the overlay draws has to carry that colour, or the content
-// reads as a patch of a different shade.
-func TestEveryCellCarriesTheColourHerdrPainted(t *testing.T) {
+// Herdr paints the popup in whatever its theme says. A background of ours would
+// replace that colour cell by cell, so the overlay sets none.
+func TestTheOverlayNeverSetsABackground(t *testing.T) {
 	previous := lipgloss.ColorProfile()
 	lipgloss.SetColorProfile(termenv.TrueColor)
 	defer lipgloss.SetColorProfile(previous)
 
-	const painted = "#282c34"
 	flow := promptflow.New(stubTranslator{english: english}, &recordingTarget{})
 	var model tea.Model = overlay.New(context.Background(), flow, overlay.Options{
 		Service: "deepl", Language: "EN-US", Vim: true, Live: true, Pulse: true,
-		Background: painted,
 	})
 	model, _ = model.Update(tea.WindowSizeMsg{Width: 87, Height: 17})
 
-	// 40;2;40;44;52 is that colour as a background.
-	const asBackground = "48;2;40;44;52"
-	lines := strings.Split(model.View(), "\n")
-	if len(lines) != 17 {
-		t.Errorf("drew %d rows, want the pane's 17 filled", len(lines))
+	for _, sequence := range sgrSequences(model.View()) {
+		for _, parameter := range strings.Split(sequence, ";") {
+			if setsBackground(parameter) {
+				t.Errorf("a style sets background %q, in \x1b[%sm", parameter, sequence)
+			}
+		}
 	}
-	for row, line := range lines {
-		if !strings.Contains(line, asBackground) {
-			t.Errorf("row %d carries no background: %q", row, line)
+}
+
+func sgrSequences(rendered string) []string {
+	var found []string
+	for _, after := range strings.Split(rendered, "\x1b[")[1:] {
+		if end := strings.IndexRune(after, 'm'); end >= 0 {
+			found = append(found, after[:end])
 		}
-		if width := lipgloss.Width(line); width != 87 {
-			t.Errorf("row %d is %d columns, want the pane's 87", row, width)
-		}
+	}
+	return found
+}
+
+// 40-47 and 100-107 are the palette backgrounds, 48 introduces an exact one.
+func setsBackground(parameter string) bool {
+	number, err := strconv.Atoi(parameter)
+	if err != nil {
+		return false
+	}
+	switch {
+	case number >= 40 && number <= 48,
+		number >= 100 && number <= 107:
+		return true
+	default:
+		return false
 	}
 }

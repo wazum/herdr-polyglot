@@ -13,12 +13,8 @@ var (
 	bright = lipgloss.Color("13")
 )
 
-// styles carries the same background into every piece the overlay draws. Herdr
-// paints the popup in its own colour, and a cell written without it reads as a
-// patch of the wrong shade.
+// Foregrounds only: a cell left alone keeps the background herdr painted.
 type styles struct {
-	background  lipgloss.TerminalColor
-	known       bool
 	text        lipgloss.Style
 	placeholder lipgloss.Style
 	cursor      lipgloss.Style
@@ -30,49 +26,32 @@ type styles struct {
 	faded       lipgloss.Style
 	bright      lipgloss.Style
 	mode        lipgloss.Style
-	pane        lipgloss.Style
 	draftBox    lipgloss.Style
 	englishBox  lipgloss.Style
 }
 
-func newStyles(background string) styles {
-	set := styles{known: background != ""}
-	on := func(style lipgloss.Style) lipgloss.Style {
-		if !set.known {
-			return style
-		}
-		return style.Background(lipgloss.Color(background))
-	}
+func newStyles() styles {
+	return styles{
+		text:        lipgloss.NewStyle(),
+		placeholder: lipgloss.NewStyle().Foreground(muted),
+		cursor:      lipgloss.NewStyle().Foreground(accent),
+		badge:       lipgloss.NewStyle().Foreground(muted),
+		hint:        lipgloss.NewStyle().Foreground(muted),
+		key:         lipgloss.NewStyle().Foreground(accent),
+		accent:      lipgloss.NewStyle().Foreground(accent),
+		danger:      lipgloss.NewStyle().Foreground(danger),
+		faded:       lipgloss.NewStyle().Foreground(muted).Faint(true),
+		bright:      lipgloss.NewStyle().Foreground(bright).Bold(true),
+		mode:        lipgloss.NewStyle().Foreground(accent).Bold(true),
 
-	if set.known {
-		set.background = lipgloss.Color(background)
+		draftBox: lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(frame).
+			Padding(0, 1),
+		englishBox: lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(accent).
+			Padding(0, 1).
+			Height(englishRows - 2),
 	}
-	set.text = on(lipgloss.NewStyle())
-	set.placeholder = on(lipgloss.NewStyle().Foreground(muted))
-	set.cursor = on(lipgloss.NewStyle().Foreground(accent))
-	set.badge = on(lipgloss.NewStyle().Foreground(muted))
-	set.hint = on(lipgloss.NewStyle().Foreground(muted))
-	set.key = on(lipgloss.NewStyle().Foreground(accent))
-	set.accent = on(lipgloss.NewStyle().Foreground(accent))
-	set.danger = on(lipgloss.NewStyle().Foreground(danger))
-	set.faded = on(lipgloss.NewStyle().Foreground(muted).Faint(true))
-	set.bright = on(lipgloss.NewStyle().Foreground(bright).Bold(true))
-	set.mode = on(lipgloss.NewStyle().Foreground(accent).Bold(true))
-	set.pane = on(lipgloss.NewStyle())
-
-	set.draftBox = on(lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(frame).
-		Padding(0, 1))
-	set.englishBox = on(lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(accent).
-		Padding(0, 1).
-		Height(englishRows - 2))
-
-	if set.known {
-		set.draftBox = set.draftBox.BorderBackground(set.background)
-		set.englishBox = set.englishBox.BorderBackground(set.background)
-	}
-	return set
 }

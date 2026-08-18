@@ -23,17 +23,7 @@ func (m Model) View() string {
 
 	// Herdr already draws a frame around the popup; a second one inside it only
 	// takes room from the draft.
-	return m.fillPane(strings.Join(parts, "\n"))
-}
-
-// With herdr's own colour in hand every cell can be painted, which leaves the
-// popup one shade throughout. Without it, cells are left untouched instead:
-// a space in the wrong shade is worse than one herdr painted itself.
-func (m Model) fillPane(content string) string {
-	if !m.styles.known || m.pane.Width <= 0 || m.pane.Height <= 0 {
-		return content
-	}
-	return m.styles.pane.Width(m.pane.Width).Height(m.pane.Height).Render(content)
+	return strings.Join(parts, "\n")
 }
 
 func (m Model) englishPane() string {
@@ -53,7 +43,7 @@ func (m Model) englishPane() string {
 // Herdr writes the plugin's name on the popup frame, so the heading is only the
 // badge saying what will happen. It starts one column in, under that name.
 func (m Model) header() string {
-	return m.styles.text.Render(" ") + m.badge()
+	return " " + m.badge()
 }
 
 // The badge is joined from rendered pieces: the pulse carries its own colour,
@@ -90,28 +80,28 @@ func (m Model) destination() string {
 func (m Model) footer(line int) string {
 	mode := ""
 	if m.draft.Modal() {
-		mode = m.styles.mode.Render(m.draft.Mode().String()) + m.styles.text.Render(" ")
+		mode = m.styles.mode.Render(m.draft.Mode().String()) + " "
 	}
 
 	switch {
 	case m.failure != nil:
-		return m.spread(mode+m.styles.danger.Render("✗ "+m.failure.Error()),
+		return spread(mode+m.styles.danger.Render("✗ "+m.failure.Error()),
 			m.styles.hint.Render("ctrl+c close"), line)
 	case m.draftIsTooLong():
-		return m.spread(
+		return spread(
 			mode+m.styles.danger.Render(fmt.Sprintf("⚠ %d characters", len([]rune(m.draft.Value()))))+
 				m.styles.hint.Render(" — this box is for prompts you write, not files you paste"),
 			m.styles.hint.Render("ctrl+u discard"), line)
 	case m.stage == confirming:
-		return m.spread(
+		return spread(
 			m.styles.key.Render("ctrl+d")+m.styles.hint.Render(" send this")+
 				m.styles.hint.Render(" · ")+m.styles.key.Render("esc")+
 				m.styles.hint.Render(" keep writing"),
 			m.styles.badge.Render("read it first"), line)
 	case m.stage == translating:
-		return m.spread(mode+m.spinner.View()+m.styles.accent.Render(" translating …"), "", line)
+		return spread(mode+m.spinner.View()+m.styles.accent.Render(" translating …"), "", line)
 	default:
-		return m.spread(mode+m.styles.text.Render(" ")+m.keyHints(), "", line)
+		return spread(mode+" "+m.keyHints(), "", line)
 	}
 }
 
@@ -134,22 +124,17 @@ func (m Model) keyHints() string {
 	return strings.Join(hints, m.styles.hint.Render(" · "))
 }
 
-// spread pins left to the start of the line and right to its end. With nothing
-// on the right the line ends there unless the popup's own colour is known, in
-// which case filling it out keeps the shade even.
-func (m Model) spread(left, right string, line int) string {
-	if right == "" && !m.styles.known {
+// spread pins left to the start of the line and right to its end.
+func spread(left, right string, line int) string {
+	if right == "" {
 		return left
 	}
 
 	gap := line - lipgloss.Width(left) - lipgloss.Width(right)
 	if gap < 1 {
-		if right == "" {
-			return left
-		}
-		return left + m.styles.text.Render(" ") + right
+		return left + " " + right
 	}
-	return left + m.styles.text.Render(strings.Repeat(" ", gap)) + right
+	return left + strings.Repeat(" ", gap) + right
 }
 
 // Short enough for a header: 12.3k/1M.

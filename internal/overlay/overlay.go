@@ -43,10 +43,6 @@ type Options struct {
 	MaxDraft int
 	// Pulse fills and empties a circle beside "live" while a translation runs.
 	Pulse bool
-	// Background is the colour herdr painted the popup, as the terminal reported
-	// it. Empty means it stayed silent, and then no cell is painted that does
-	// not have to be.
-	Background string
 	// Drafts keeps an unfinished prompt between sessions. Without one the draft
 	// simply goes when the popup closes.
 	Drafts Drafts
@@ -138,13 +134,11 @@ type Model struct {
 	beat            int
 	pulsing         bool
 	translationDone bool
-	// Every cell of the pane is drawn, or the background herdr painted behind
-	// the popup shows through where the overlay stops.
-	pane tea.WindowSizeMsg
+	pane            tea.WindowSizeMsg
 }
 
 func New(ctx context.Context, prompter Prompter, options Options) Model {
-	look := newStyles(options.Background)
+	look := newStyles()
 
 	draft := vimarea.New(
 		vimarea.WithVim(options.Vim),

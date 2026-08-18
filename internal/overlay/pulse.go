@@ -15,15 +15,13 @@ const (
 	brightTone
 )
 
-// The circle grows and fades and grows again, held for a moment at each end, so
-// it reads as breathing rather than spinning. Brightness follows the size, which
-// is as close to a fade as the terminal palette gets.
+// Held at each end so it reads as breathing rather than spinning, and always a
+// circle: a dot would look like another of the separators beside it.
 var breath = []struct {
 	glyph string
 	tone  tone
 }{
-	{"·", fadedTone},
-	{"·", fadedTone},
+	{"○", fadedTone},
 	{"○", fadedTone},
 	{"◔", accentTone},
 	{"◑", accentTone},
@@ -33,7 +31,6 @@ var breath = []struct {
 	{"◕", brightTone},
 	{"◑", accentTone},
 	{"◔", accentTone},
-	{"○", fadedTone},
 }
 
 const breathStep = 120 * time.Millisecond
