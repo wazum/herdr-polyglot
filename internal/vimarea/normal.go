@@ -120,6 +120,10 @@ func (m Model) resolvePending(pressed rune) Model {
 	switch operator + string(pressed) {
 	case "gg":
 		m.toLineOrFirst(explicit)
+	case "gj":
+		m.repeat(count, m.rowDown)
+	case "gk":
+		m.repeat(count, m.rowUp)
 	case "dd":
 		m.deleteLines(count)
 	case "dw":
@@ -142,6 +146,31 @@ func (m Model) resolvePending(pressed rune) Model {
 	return m
 }
 
+// A prompt is one long line wrapped over several rows, where moving by line moves
+// nowhere. So a wrapped line is walked by row on screen, and everything else by
+// line, which is what remembers the column.
+func (m *Model) rowDown() {
+	if m.lineWraps() {
+		m.area.CursorDown()
+		m.clampToLine()
+		return
+	}
+	m.toLine(m.Row() + 1)
+}
+
+func (m *Model) rowUp() {
+	if m.lineWraps() {
+		m.area.CursorUp()
+		m.clampToLine()
+		return
+	}
+	m.toLine(m.Row() - 1)
+}
+
+func (m Model) lineWraps() bool {
+	return m.area.LineInfo().Height > 1
+}
+
 // controlKey handles keys that are not runes: the arrows still move, and escape
 // drops whatever command was half typed.
 func (m Model) controlKey(key tea.KeyMsg) Model {
@@ -149,9 +178,9 @@ func (m Model) controlKey(key tea.KeyMsg) Model {
 	case tea.KeyEsc:
 		m.pending, m.count, m.pendingCount = "", 0, 0
 	case tea.KeyUp:
-		m.toLine(m.Row() - 1)
+		m.rowUp()
 	case tea.KeyDown:
-		m.toLine(m.Row() + 1)
+		m.rowDown()
 	case tea.KeyLeft:
 		m.setCol(max(m.Column()-1, 0))
 	case tea.KeyRight:

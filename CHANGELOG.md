@@ -16,6 +16,16 @@ the versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- The draft can be walked through when it holds more than it shows: the arrows
+  move by row, and `gj`/`gk` do the same with vim bindings on, where `j`/`k` keep
+  vim's meaning of a whole line.
+- Pasting a long draft no longer leaves the view at the top with the cursor out of
+  sight below.
+- Nothing is drawn wider than the pane. A popup narrower than 34 columns used to
+  be drawn at 34 and wrap every line, stacking frame on frame while scrolling.
+- The translation beside the draft shows its beginning and ends in `…` when there
+  is more, instead of a scrollbar that could not be used from there. `tab` reads
+  the rest, and the footer says so while there is more to read.
 - Text no longer wraps twice. The draft box was two columns wider than what it
   showed, so a line was wrapped once by the text area and again by the box, which
   dropped words onto lines of their own.

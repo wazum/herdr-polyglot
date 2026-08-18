@@ -14,7 +14,6 @@ import (
 	"github.com/wazum/herdr-polyglot/internal/promptflow"
 )
 
-// laidOut draws the popup at a pane size with a draft in it, the way herdr does.
 func laidOut(t *testing.T, pane tea.WindowSizeMsg, draft, preview string) []string {
 	t.Helper()
 	previous := lipgloss.ColorProfile()
@@ -113,7 +112,6 @@ func TestNothingIsWrappedTwice(t *testing.T) {
 	}
 }
 
-// A popup much narrower or wider than the plugin asks for still holds together.
 func TestTheLayoutHoldsAtOtherPaneSizes(t *testing.T) {
 	for _, pane := range []tea.WindowSizeMsg{
 		{Width: 40, Height: 15},
@@ -138,7 +136,6 @@ func TestTheLayoutHoldsAtOtherPaneSizes(t *testing.T) {
 	}
 }
 
-// A draft longer than its box says so, and says where you are in it.
 func TestALongDraftGetsAScrollbar(t *testing.T) {
 	pane := tea.WindowSizeMsg{Width: 87, Height: 15}
 
@@ -154,11 +151,9 @@ func TestALongDraftGetsAScrollbar(t *testing.T) {
 	}
 }
 
-// A bar is a column: every mark in the same place, whatever the text beside it.
 func TestTheBarIsAColumn(t *testing.T) {
 	pane := tea.WindowSizeMsg{Width: 87, Height: 15}
-	lines := laidOut(t, pane, "Bitte behebe den Test.",
-		"Short. "+strings.Repeat("A much longer sentence to fill the row. ", 12)+"End.")
+	lines := laidOut(t, pane, "Kurz. "+strings.TrimSpace(strings.Repeat("wort ", 300)), "")
 
 	columns := map[int]int{}
 	for _, line := range lines {
@@ -214,7 +209,6 @@ func TestTheBarSurvivesItsEdgeCases(t *testing.T) {
 	}
 }
 
-// draftBar reads the scrollbar of the first box, which is the draft's.
 func draftBar(t *testing.T, lines []string) string {
 	t.Helper()
 
@@ -235,7 +229,6 @@ func draftBar(t *testing.T, lines []string) string {
 	return bar.String()
 }
 
-// Writing at the end of a long draft puts the thumb at the end of the bar.
 func TestTheThumbFollowsTheWriting(t *testing.T) {
 	pane := tea.WindowSizeMsg{Width: 87, Height: 15}
 	bar := draftBar(t, laidOut(t, pane, strings.TrimSpace(strings.Repeat("wort ", 200)), ""))
@@ -256,18 +249,3 @@ func TestTheThumbFollowsTheWriting(t *testing.T) {
 
 // A translation too long for its box scrolls to its end, where the newest
 // sentence is, and shows a bar for the rest.
-func TestALongTranslationScrollsToItsEnd(t *testing.T) {
-	pane := tea.WindowSizeMsg{Width: 87, Height: 15}
-	preview := "Erster Satz. " + strings.Repeat("Mittlerer Satz. ", 30) + "Letzter Satz."
-
-	drawn := strings.Join(laidOut(t, pane, "Bitte behebe den Test.", preview), "\n")
-	if !strings.Contains(drawn, "Letzter Satz.") {
-		t.Errorf("the end of the translation is not on screen:\n%s", drawn)
-	}
-	if strings.Contains(drawn, "Erster Satz.") {
-		t.Error("the box grew to hold the whole translation instead of scrolling")
-	}
-	if !strings.Contains(drawn, overlay.ScrollThumb) {
-		t.Error("a translation that does not fit has no scrollbar")
-	}
-}

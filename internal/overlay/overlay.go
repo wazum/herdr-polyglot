@@ -373,7 +373,9 @@ func (m *Model) startNoticeClock() tea.Cmd {
 }
 
 func (m *Model) resize(contentWidth int) {
-	m.width = min(max(contentWidth, minContentWidth), maxContentWidth)
+	// Never wider than the pane. A width clamped up past it wraps every line the
+	// popup draws, and an inline renderer then stacks frame on frame.
+	m.width = min(max(contentWidth, 1), maxContentWidth)
 	// The text area wraps at the width the box shows, or the box wraps again what
 	// the area already wrapped and words drop onto lines nobody asked for.
 	m.draft.SetWidth(m.contentWidth())

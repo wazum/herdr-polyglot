@@ -132,9 +132,25 @@ func (m *Model) Clear() {
 	m.insertRemembered = true
 }
 
-func (m *Model) SetWidth(width int)   { m.area.SetWidth(width) }
-func (m *Model) SetHeight(height int) { m.area.SetHeight(height) }
-func (m *Model) Focus() tea.Cmd       { return m.area.Focus() }
+func (m *Model) SetWidth(width int) {
+	m.area.SetWidth(width)
+	m.reveal()
+}
+
+func (m *Model) SetHeight(height int) {
+	m.area.SetHeight(height)
+	m.reveal()
+}
+
+// reveal brings the cursor back into view. The text area fills its viewport while
+// rendering and can only scroll to the cursor once that content is there, so a
+// single message that inserts a lot of text — a paste — leaves the view a frame
+// behind, showing the top of the draft while the cursor is at the end.
+func (m *Model) reveal() {
+	_ = m.area.View()
+	m.area, _ = m.area.Update(nil)
+}
+func (m *Model) Focus() tea.Cmd { return m.area.Focus() }
 
 // RowOffset is how far the cursor sits into the wrapped rows of its own line,
 // which is what a caller needs to know where the view is scrolled to.
@@ -152,6 +168,7 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	if key.Paste {
 		m.rememberBefore(m.area.Value(), m.Row(), m.Column())
 		m.area.InsertString(string(key.Runes))
+		m.reveal()
 		return m, nil
 	}
 
@@ -186,6 +203,7 @@ func (m Model) insert(key tea.KeyMsg, msg tea.Msg) (Model, tea.Cmd) {
 	}
 	m.recordTyped(key)
 	m.desiredCol = m.Column()
+	m.reveal()
 	return m, cmd
 }
 

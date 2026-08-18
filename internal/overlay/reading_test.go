@@ -14,8 +14,6 @@ import (
 	"github.com/wazum/herdr-polyglot/internal/promptflow"
 )
 
-// A translation of twenty sentences, numbered so a test can tell which part of it
-// is on screen.
 func numberedEnglish(sentences int) string {
 	var written strings.Builder
 	for number := 1; number <= sentences; number++ {
@@ -39,7 +37,6 @@ func itoa(number int) string {
 	return string(rune('0'+number/10)) + string(rune('0'+number%10))
 }
 
-// reader opens a popup with a long translation in it and hands back the model.
 func reader(t *testing.T) tea.Model {
 	t.Helper()
 	previous := lipgloss.ColorProfile()
@@ -59,14 +56,12 @@ func reader(t *testing.T) tea.Model {
 	return model
 }
 
-// Writing shows the end of the translation, because that is where the writing is.
-// Reading starts at the top, because that is where reading starts.
 func TestTabTurnsTheTranslationIntoSomethingReadable(t *testing.T) {
 	model := reader(t)
 
 	writing := model.View()
-	if !strings.Contains(writing, marker(20)) {
-		t.Errorf("while writing, the end of the translation is not shown:\n%s", writing)
+	if !strings.Contains(writing, marker(1)) {
+		t.Errorf("while writing, the translation does not start at its beginning:\n%s", writing)
 	}
 
 	model, _ = model.Update(tea.KeyMsg{Type: tea.KeyTab})

@@ -32,7 +32,6 @@ func drawn(t *testing.T, options overlay.Options) (empty, written string) {
 	return empty, model.View()
 }
 
-// An empty box has room nobody is using.
 func TestTheEmptyDraftBoxIsSigned(t *testing.T) {
 	empty, written := drawn(t, overlay.Options{Service: "deepl", Language: "EN-US", Logo: true})
 
@@ -55,7 +54,6 @@ func TestTheSignatureCanBeTurnedOff(t *testing.T) {
 	}
 }
 
-// Whatever it draws, the box stays the same shape.
 func TestTheSignatureChangesNoLineWidth(t *testing.T) {
 	signed, _ := drawn(t, overlay.Options{Service: "deepl", Language: "EN-US", Logo: true})
 	plain, _ := drawn(t, overlay.Options{Service: "deepl", Language: "EN-US"})
@@ -72,7 +70,6 @@ func TestTheSignatureChangesNoLineWidth(t *testing.T) {
 	}
 }
 
-// A box too short for the signature simply goes without it.
 func TestAShortBoxIsLeftUnsigned(t *testing.T) {
 	previous := lipgloss.ColorProfile()
 	lipgloss.SetColorProfile(termenv.ANSI)

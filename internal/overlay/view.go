@@ -59,18 +59,23 @@ func (m Model) draftBody() string {
 	return m.scrolled(body, first, visible, total)
 }
 
+// Beside the draft there is room to glance at the translation, not to read it, so
+// the panel shows where it starts and marks that it goes on. Tab is what reads it.
 // The text is fitted before it is styled: escape sequences in the middle of it
 // would decide where the lines break.
 func (m Model) englishPane() string {
 	text, style := m.english()
 
-	// The box holds the rows it holds: a longer translation scrolls to its end
-	// rather than growing the box and pushing the footer off the pane.
 	rows := englishRows - 2
-	total := rowsOf(text, m.contentWidth())
-	shown := style.Render(lastRows(text, m.contentWidth(), rows))
-	return m.styles.englishBox.Width(m.width).
-		Render(m.scrolled(shown, max(total-rows, 0), rows, total))
+	shown := rowsFrom(text, m.contentWidth(), 0, rows)
+	if m.translationIsCut() {
+		shown = cutTo(shown, m.contentWidth()-2) + " …"
+	}
+	return m.styles.englishBox.Width(m.width).Render(style.Render(shown))
+}
+
+func (m Model) translationIsCut() bool {
+	return m.preview != "" && rowsOf(m.preview, m.contentWidth()) > englishRows-2
 }
 
 // english is the translation as it stands, and how it should read: dimmed while it
@@ -208,11 +213,14 @@ func roomBeside(mode string, inner int) int {
 // nothing to go looking for. The vim bindings are the exception, and they are in
 // the readme rather than the footer.
 func (m Model) keyHints(room int) string {
-	shown := [][2]string{
-		{"alt+enter", m.destination()},
-		{"ctrl+r", "→ " + m.otherDestination()},
-		{"ctrl+l", "live"},
+	shown := [][2]string{{"alt+enter", m.destination()}}
+	// Only worth naming while there is more translation than the panel shows.
+	if m.translationIsCut() {
+		shown = append(shown, [2]string{"tab", "read it"})
 	}
+	shown = append(shown,
+		[2]string{"ctrl+r", "→ " + m.otherDestination()},
+		[2]string{"ctrl+l", "live"})
 
 	// An arrow reads as "takes you to", which a bare mode name does not.
 	switch {
@@ -277,19 +285,6 @@ func rowsFrom(text string, width, from, rows int) string {
 	lines := strings.Split(wrapped(text, width), "\n")
 	from = min(max(from, 0), max(len(lines)-1, 0))
 	return strings.Join(lines[from:min(from+rows, len(lines))], "\n")
-}
-
-// lastRows keeps the end of the text, where the newest writing is.
-func lastRows(text string, width, rows int) string {
-	if width < 1 || rows < 1 {
-		return text
-	}
-
-	lines := strings.Split(wrapped(text, width), "\n")
-	if len(lines) <= rows {
-		return strings.Join(lines, "\n")
-	}
-	return strings.Join(lines[len(lines)-rows:], "\n")
 }
 
 // spread pins left to the start of the line and right to its end.
