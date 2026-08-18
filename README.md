@@ -5,13 +5,23 @@
 [![herdr](https://img.shields.io/badge/herdr-%E2%89%A5%200.8.0-6C3EF5)](https://herdr.dev)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-Write prompts in the language you think in. A [herdr](https://herdr.dev) plugin:
-press a key on any agent pane, an overlay opens above it, you write, and the
-English translation lands in the agent's input. It works with Claude Code, Codex,
-opencode and the rest, because the prompt goes through herdr rather than into a
-particular tool.
+Write prompts in the language you think in and keep the conversation in English.
+A [herdr](https://herdr.dev) plugin: press a key on any agent pane, an overlay
+opens above it, you write, and the English translation lands in the agent's input.
+It works with Claude Code, Codex, opencode and the rest, because the prompt goes
+through herdr rather than into a particular tool.
 
 ![polyglot translating a prompt as it is written](demo/polyglot.gif)
+
+## Why this exists
+
+An agent answers in the language it was asked in. Write to it in German and the
+replies come back in German — and so do the comments it puts in the code, the
+commit messages, the documentation, and sometimes the identifiers themselves. A
+codebase should be in one language, and that language is English.
+
+The prompt is the one place another language belongs. You write it in yours, the
+agent reads it in English, and nothing it produces switches language.
 
 ## Quick start
 
