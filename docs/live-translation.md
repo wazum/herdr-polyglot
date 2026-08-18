@@ -53,6 +53,13 @@ Quoted strings are deliberately *not* protected. `Ändere den String "Kunde nich
 gefunden" auf Englisch` is a prompt where translating the quoted text is exactly
 what was meant, so quotes carry no reliable intent. Backticks do.
 
+A prompt keeps the shape it was written in. Herdr puts text into an agent's input
+without a line break standing for a keypress — measured against herdr 0.8.0 with
+both `agent prompt` and `pane send-text` — so a code block arrives as a code
+block. Tabs arrive as four spaces, because a tab keystroke in an input box can be
+a completion rather than text, and escape sequences are stripped: those are
+instructions to the terminal, not part of a prompt.
+
 ## Sending costs nothing extra
 
 If the English on screen belongs to the draft as it stands, that text is what is

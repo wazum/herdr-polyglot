@@ -151,7 +151,11 @@ func TestDeliverKeepsControlCharactersOutOfTheAgentsTerminal(t *testing.T) {
 	}
 }
 
-func TestDeliverKeepsAMultiLinePromptOnOneLine(t *testing.T) {
+// Herdr puts text into an agent's input without a line break standing for a
+// keypress — measured against herdr 0.8.0, with both `agent prompt` and
+// `pane send-text`. So a prompt keeps the shape it was written in, which is what
+// makes a pasted code block worth delivering at all.
+func TestDeliverKeepsTheShapeOfAMultiLinePrompt(t *testing.T) {
 	target := &recordingTarget{}
 
 	err := promptflow.New(&stubTranslator{}, target, target).
@@ -159,13 +163,29 @@ func TestDeliverKeepsAMultiLinePromptOnOneLine(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Deliver returned unexpected error: %v", err)
 	}
-	// A newline typed into an agent's input submits the prompt half written, so
-	// the lines have to arrive as one.
-	if delivered := target.inserted[0]; strings.ContainsAny(delivered, "\n\r") {
-		t.Errorf("delivered %q, want no line breaks", delivered)
+	if delivered := target.inserted[0]; delivered != "first line\nsecond line\nthird" {
+		t.Errorf("delivered %q, want the lines kept as lines", delivered)
 	}
-	if delivered := target.inserted[0]; delivered != "first line second line third" {
-		t.Errorf("delivered %q, want the lines joined by spaces", delivered)
+}
+
+// A line break is text; an escape sequence is an instruction to the terminal
+// drawing the pane, and that never goes further than here.
+func TestDeliverStillStripsWhatTheTerminalWouldActOn(t *testing.T) {
+	target := &recordingTarget{}
+
+	err := promptflow.New(&stubTranslator{}, target, target).
+		Deliver(context.Background(), "fix it\x1b]0;stolen title\x07\nsecond line\x00", promptflow.Typing)
+	if err != nil {
+		t.Fatalf("Deliver returned unexpected error: %v", err)
+	}
+	delivered := target.inserted[0]
+	for _, forbidden := range []string{"\x1b", "\x07", "\x00"} {
+		if strings.Contains(delivered, forbidden) {
+			t.Errorf("delivered %q, which still carries %q", delivered, forbidden)
+		}
+	}
+	if !strings.Contains(delivered, "\nsecond line") {
+		t.Errorf("delivered %q, want the line break kept", delivered)
 	}
 }
 
@@ -291,5 +311,20 @@ func TestAnUnknownDeliveryIsNotSilentlyTakenForSending(t *testing.T) {
 	}
 	if len(target.inserted) != 0 {
 		t.Errorf("target received %v, want nothing for a delivery that does not exist", target.inserted)
+	}
+}
+
+// A tab is indentation in the code someone pasted, but in an agent's input box a
+// tab keystroke can be a completion, so it arrives as the spaces it stands for.
+func TestDeliverTurnsATabIntoIndentation(t *testing.T) {
+	target := &recordingTarget{}
+
+	err := promptflow.New(&stubTranslator{}, target, target).
+		Deliver(context.Background(), "```go\nif x {\n\treturn nil\n}\n```", promptflow.Sending)
+	if err != nil {
+		t.Fatalf("Deliver returned unexpected error: %v", err)
+	}
+	if delivered := target.inserted[0]; !strings.Contains(delivered, "\n    return nil") {
+		t.Errorf("delivered %q, want the tab as indentation", delivered)
 	}
 }

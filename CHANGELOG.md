@@ -15,6 +15,10 @@ the versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- A delivered prompt keeps its line breaks instead of being flattened onto one
+  line, so a protected code block arrives as a code block and a `//` comment no
+  longer swallows the rest of it. Tabs arrive as four spaces; escape sequences are
+  still stripped.
 - Code is no longer translated. Backticked spans and fenced blocks are taken out
   of the draft before it is sent and put back exactly as they were, so identifiers
   keep their names, comments and string literals stay as written, and indentation
