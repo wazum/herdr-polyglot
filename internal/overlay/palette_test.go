@@ -13,6 +13,7 @@ import (
 
 	"github.com/wazum/herdr-polyglot/internal/overlay"
 	"github.com/wazum/herdr-polyglot/internal/promptflow"
+	"github.com/wazum/herdr-polyglot/internal/translation"
 )
 
 // Herdr does not tell plugins which theme is active, but it does paint the
@@ -146,4 +147,36 @@ func TestTheFooterListsEveryKeyAndStillFits(t *testing.T) {
 func lastLine(rendered string) string {
 	lines := strings.Split(rendered, "\n")
 	return lines[len(lines)-1]
+}
+
+type keptDraft struct{}
+
+func (keptDraft) Load() string      { return "ein alter Entwurf" }
+func (keptDraft) Save(string) error { return nil }
+func (keptDraft) Clear() error      { return nil }
+
+// The heading grows with what it has to say; wrapping it onto the draft would
+// break the whole popup, so it is cut instead.
+func TestTheHeadingNeverOutgrowsThePane(t *testing.T) {
+	previous := lipgloss.ColorProfile()
+	lipgloss.SetColorProfile(termenv.Ascii)
+	defer lipgloss.SetColorProfile(previous)
+
+	const paneWidth = 87
+	flow := promptflow.New(stubTranslator{english: english}, &recordingTarget{}, &recordingTarget{})
+	var model tea.Model = overlay.New(context.Background(), flow, overlay.Options{
+		Service: "deepl", Language: "EN-US", Vim: true, Live: true, Pulse: true,
+		Review: true, Drafts: keptDraft{},
+	})
+	model, _ = model.Update(tea.WindowSizeMsg{Width: paneWidth, Height: 17})
+	model, _ = model.Update(overlay.UsageSeen(translation.Usage{Used: 999_900, Limit: 1_000_000}))
+
+	heading := strings.Split(model.View(), "\n")[0]
+	if width := lipgloss.Width(heading); width > paneWidth-1 {
+		t.Errorf("the heading is %d columns in a pane of %d: %q", width, paneWidth, heading)
+	}
+	if !strings.Contains(heading, "chars") {
+		t.Errorf("the heading does not say what the number counts: %q", heading)
+	}
+	t.Logf("heading at its longest: %q (%d columns)", heading, lipgloss.Width(heading))
 }

@@ -867,7 +867,7 @@ func TestTheHeaderShowsWhatTheKeyHasSpent(t *testing.T) {
 
 	// Compact, because the header is narrow: 12.3k of 1M.
 	teatest.WaitFor(t, overlayUnderTest.Output(), func(out []byte) bool {
-		return bytes.Contains(out, []byte("used 12.3k/1M"))
+		return bytes.Contains(out, []byte("12.3k/1M chars"))
 	}, teatest.WithDuration(3*time.Second))
 
 	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyCtrlC})

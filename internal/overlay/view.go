@@ -16,7 +16,7 @@ func (m Model) View() string {
 	draft := m.styles.draftBox.Width(m.width).Render(m.draft.View())
 	line := lipgloss.Width(draft)
 
-	parts := []string{m.header(), draft}
+	parts := []string{m.header(line), draft}
 	if m.showsEnglish() {
 		parts = append(parts, m.englishPane())
 	}
@@ -42,9 +42,10 @@ func (m Model) englishPane() string {
 }
 
 // Herdr writes the plugin's name on the popup frame, so the heading is only the
-// badge saying what will happen. It starts one column in, under that name.
-func (m Model) header() string {
-	return " " + m.badge()
+// badge saying what will happen. It starts one column in, under that name, and
+// is cut rather than allowed to wrap onto the draft.
+func (m Model) header(line int) string {
+	return lipgloss.NewStyle().MaxWidth(line - 1).Render(" " + m.badge())
 }
 
 // The badge is joined from rendered pieces: the pulse carries its own colour,
@@ -68,7 +69,10 @@ func (m Model) badge() string {
 		pieces = append(pieces, m.styles.badge.Render("· resumed draft"))
 	}
 	if m.spentKnown {
-		pieces = append(pieces, m.styles.badge.Render("· used "+spentAsWords(m.spent)))
+		// Services bill translation by the character, so that is what the number
+		// counts, and it is the month's allowance it counts against.
+		pieces = append(pieces,
+			m.styles.badge.Render("· "+spentAsWords(m.spent)+" chars this month"))
 	}
 	return strings.Join(pieces, m.styles.badge.Render(" "))
 }
@@ -103,26 +107,28 @@ func (m Model) footer(line int) string {
 		mode = m.styles.mode.Render(m.draft.Mode().String())
 	}
 
-	// One column in, like the heading.
+	// One column in on both sides, like the heading.
+	inner := line - 1
+
 	switch {
 	case m.failure != nil:
 		return spread(" "+m.styles.danger.Render("✗ "+m.failure.Error()),
-			m.styles.hint.Render("ctrl+c close"), line)
+			m.styles.hint.Render("ctrl+c close"), inner)
 	case m.draftIsTooLong():
 		return spread(
 			" "+m.styles.danger.Render(fmt.Sprintf("⚠ %d characters", len([]rune(m.draft.Value()))))+
 				m.styles.hint.Render(" — this box is for prompts you write, not files you paste"),
-			m.styles.hint.Render("ctrl+u discard"), line)
+			m.styles.hint.Render("ctrl+u discard"), inner)
 	case m.stage == confirming:
 		return spread(
 			" "+m.styles.key.Render("ctrl+d")+m.styles.hint.Render(" send this")+
 				m.styles.hint.Render(" · ")+m.styles.key.Render("esc")+
 				m.styles.hint.Render(" keep writing"),
-			m.styles.badge.Render("read it first"), line)
+			m.styles.badge.Render("read it first"), inner)
 	case m.stage == translating:
-		return spread(" "+m.spinner.View()+m.styles.accent.Render(" translating …"), mode, line)
+		return spread(" "+m.spinner.View()+m.styles.accent.Render(" translating …"), mode, inner)
 	default:
-		return spread(" "+m.keyHints(), mode, line)
+		return spread(" "+m.keyHints(), mode, inner)
 	}
 }
 
