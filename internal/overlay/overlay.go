@@ -43,6 +43,8 @@ type Options struct {
 	MaxDraft int
 	// Pulse fills and empties a circle beside "live" while a translation runs.
 	Pulse bool
+	// NoticeLinger is how long a message stays before it goes by itself.
+	NoticeLinger time.Duration
 	// Drafts keeps an unfinished prompt between sessions. Without one the draft
 	// simply goes when the popup closes.
 	Drafts Drafts
@@ -68,9 +70,12 @@ const (
 	minContentWidth = 32
 	maxContentWidth = 96
 	draftHeight     = 6
+	// A prompt is rarely one line, so the draft keeps this many rows and scrolls.
+	minDraftRows = 4
 
-	defaultDebounce = 600 * time.Millisecond
-	defaultMaxDraft = 2_000
+	defaultDebounce     = 600 * time.Millisecond
+	defaultMaxDraft     = 2_000
+	defaultNoticeLinger = 5 * time.Second
 
 	// Herdr keeps some of a popup for its own frame: measured against 0.8.0, a
 	// pane comes back three columns and two rows smaller than the size asked for.
@@ -112,8 +117,12 @@ type Model struct {
 	draft    vimarea.Model
 	spinner  spinner.Model
 	stage    stage
-	failure  error
-	width    int
+	// failure is a broken way out, so it stays on screen.
+	failure error
+	// notice is something that did not work. It goes by itself; escape is quicker.
+	notice  error
+	notices int
+	width   int
 
 	// preview holds the last translation and the draft it belongs to, so a
 	// prompt the author has read is delivered as it stands.
@@ -126,12 +135,13 @@ type Model struct {
 	// cancelPreview stops the translation started for an older draft. It is a
 	// closure, so every copy of the model cancels the same request.
 	cancelPreview context.CancelFunc
-	// resumed says the draft on screen was written in an earlier session, which
-	// is worth saying until the author takes it over.
-	// delivery can be changed while writing: the choice between sending and only
-	// typing is easier to make once the English is there to read.
-	delivery        promptflow.Delivery
-	resumed         bool
+	// delivery can be changed while writing: sending or only typing is easier to
+	// choose once the English is there to read.
+	delivery promptflow.Delivery
+	// resumed says the draft came from an earlier session.
+	resumed bool
+	// delivered says the agent has the prompt, so there is nothing left to keep.
+	delivered       bool
 	spent           translation.Usage
 	spentKnown      bool
 	beat            int
@@ -160,6 +170,9 @@ func New(ctx context.Context, prompter Prompter, options Options) Model {
 	if options.MaxDraft <= 0 {
 		options.MaxDraft = defaultMaxDraft
 	}
+	if options.NoticeLinger <= 0 {
+		options.NoticeLinger = defaultNoticeLinger
+	}
 
 	model := Model{
 		ctx:      ctx,
@@ -184,6 +197,8 @@ type (
 	promptSentMsg   struct{}
 	blankDraftMsg   struct{}
 	submitFailedMsg struct{ err error }
+	// shown names the notice this timer belongs to, so a newer one stays up.
+	noticeExpiredMsg struct{ shown int }
 
 	previewDueMsg   struct{ revision int }
 	previewReadyMsg struct {
@@ -241,16 +256,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case promptSentMsg:
 		m.forgetDraft()
+		m.delivered = true
 		return m, tea.Quit
 
 	case blankDraftMsg:
-		m.stage = composing
-		m.failure = promptflow.ErrBlankDraft
-		return m, nil
+		return m.raiseNotice(promptflow.ErrBlankDraft)
 
 	case submitFailedMsg:
-		m.stage = composing
-		m.failure = msg.err
+		return m.raiseNotice(msg.err)
+
+	case noticeExpiredMsg:
+		if msg.shown == m.notices {
+			m.notice = nil
+		}
 		return m, nil
 
 	case previewDueMsg:
@@ -273,8 +291,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// A translation asked for in order to send it waits for the go-ahead.
 		if m.stage == translating && m.options.Confirm {
 			if msg.err != nil {
-				m.stage, m.failure = composing, msg.err
-				return m, nil
+				return m.raiseNotice(msg.err)
 			}
 			m.stage = confirming
 		}
@@ -292,6 +309,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	m.draft, cmd = m.draft.Update(msg)
 	return m, cmd
+}
+
+// raiseNotice puts a message up and starts the clock that takes it down again.
+func (m Model) raiseNotice(why error) (tea.Model, tea.Cmd) {
+	m.stage = composing
+	m.notice = why
+	m.notices++
+
+	shown := m.notices
+	return m, tea.Tick(m.options.NoticeLinger, func(time.Time) tea.Msg {
+		return noticeExpiredMsg{shown: shown}
+	})
 }
 
 func (m *Model) resize(contentWidth int) {
@@ -362,6 +391,11 @@ func (m Model) handleKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case key.Type == tea.KeyCtrlC:
 		return m, tea.Quit
 
+	// Escape takes the message away. It must not also close the popup.
+	case key.Type == tea.KeyEsc && m.notice != nil:
+		m.notice = nil
+		return m, nil
+
 	case key.Type == tea.KeyEsc && m.stage == confirming:
 		m.stage = composing
 		return m, nil
@@ -408,7 +442,7 @@ func (m Model) handleKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 	}
 
-	m.failure = nil
+	m.failure, m.notice = nil, nil
 	before := m.draft.Value()
 
 	var cmd tea.Cmd
@@ -490,13 +524,12 @@ func (m *Model) stopPreview() {
 func (m Model) startSubmit() (tea.Model, tea.Cmd) {
 	draft := m.draft.Value()
 	m.stage = translating
-	m.failure = nil
+	m.notice = nil
 	m.stopPreview()
 
 	// Nothing to confirm about an empty draft.
 	if m.options.Confirm && strings.TrimSpace(draft) == "" {
-		m.stage, m.failure = composing, promptflow.ErrBlankDraft
-		return m, nil
+		return m.raiseNotice(promptflow.ErrBlankDraft)
 	}
 
 	// Read once, sent as it stands: a translation already on screen is what the
