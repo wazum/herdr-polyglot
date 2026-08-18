@@ -20,8 +20,11 @@ env:
   GOVULNCHECK_VERSION: v1.7.0
 
 jobs:
+  # The version in go.mod is the one a user building from source gets, so that is
+  # what the tests run against.
   test:
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
     strategy:
       fail-fast: false
       matrix:
@@ -30,39 +33,97 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version: stable
+          go-version-file: go.mod
           cache: true
       - run: go vet ./...
       - run: go test -race ./...
       - run: go build ./...
 
-  lint:
+  # And once against the newest release, to hear about a toolchain that breaks us
+  # before a user with a fresh Go does.
+  newest-go:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version: stable
+          cache: true
+      - run: go test -race ./...
+
+  # A plugin that only builds for the machine it was written on is not much of a
+  # plugin, and the release workflow runs too late to hear about it.
+  cross-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [darwin/arm64, darwin/amd64, linux/amd64, linux/arm64]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Build for ${{ matrix.target }}
+        run: |
+          GOOS="${TARGET%/*}" GOARCH="${TARGET#*/}" go build ./...
+        env:
+          TARGET: ${{ matrix.target }}
+
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
           cache: true
       - uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
         with:
           version: ${{ env.GOLANGCI_LINT_VERSION }}
       - name: Check formatting
         run: golangci-lint fmt --diff
+      - name: Check the module is tidy
+        run: |
+          go mod tidy
+          git diff --exit-code go.mod go.sum
+      - name: Check dependencies match their checksums
+        run: go mod verify
 
   vulnerabilities:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version: stable
+          go-version-file: go.mod
           cache: true
+      # Against the version in go.mod, so the advisories reported are the ones a
+      # user building from source is exposed to.
       - run: go run golang.org/x/vuln/cmd/govulncheck@${{ env.GOVULNCHECK_VERSION }} ./...
 
-  shell:
-    runs-on: ubuntu-latest
+  # Every install runs this script, so it is checked and then run.
+  install:
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
       - name: Lint shell scripts
         run: shellcheck herdr/*.sh
+      - name: Install the plugin the way herdr does
+        run: bash herdr/install.sh
+      - name: The binary it produced runs
+        run: ./bin/herdr-polyglot warm
