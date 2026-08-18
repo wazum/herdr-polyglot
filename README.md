@@ -56,6 +56,16 @@ command = "wazum.polyglot.prompt"
 description = "write a prompt in your own language"
 ```
 
+For one gesture instead of two, let the terminal send the prefix for you. In
+*Ghostty*:
+
+```
+keybind = super+p=text:\x02t
+```
+
+`\x02` is `ctrl+b`, the prefix, and `t` is the binding above. Reload with ⌘⇧, and
+take a chord the terminal has free — ⌘G is find-next in *Ghostty*.
+
 `t` as in translate — *herdr* already uses `prefix+p` for the previous tab.
 There is a second action, `wazum.polyglot.compose`, which types the prompt into
 the agent's input instead of sending it, and `ctrl+r` switches between the two
