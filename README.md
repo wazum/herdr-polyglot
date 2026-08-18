@@ -100,10 +100,10 @@ Without vim, the box is an ordinary text area and `esc` closes it.
 ## How it works
 
 The keybinding runs an action that knows which pane you pressed it in, and opens
-the overlay above that pane with the pane id in its environment. When you press
-enter, the draft goes to a translation service and the result is handed back to
-that same pane through the herdr CLI — `agent prompt` to send it, or
-`pane send-text` to type it without sending.
+the overlay above that pane with the pane id in its environment. On `ctrl+d` the
+draft goes to a translation service and the result is handed back to that same
+pane through the herdr CLI — `agent prompt` to send it, or `pane send-text` to
+type it without sending.
 
 ## Another translation service
 
