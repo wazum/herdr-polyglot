@@ -5,6 +5,8 @@ second box and follows the draft about 600ms after you stop typing. Services
 charge by the character, so the point of this page is what keeps that from
 costing more than translating once.
 
+![the draft and its English, sentence by sentence](../demo/polyglot.gif)
+
 ## Paying for a sentence once
 
 The draft is split into sentences, and each sentence is translated on its own

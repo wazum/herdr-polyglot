@@ -11,7 +11,8 @@ opens above it, you write, and the English translation lands in the agent's
 input. It works with *Claude Code*, *Codex*, *opencode* and the rest, because
 the prompt goes through *herdr* rather than into a particular tool.
 
-![polyglot translating a prompt as it is written](demo/polyglot.gif)
+![the popup over a Claude Code pane: a German prompt written, translated, and
+typed into the agent's input](demo/polyglot-in-herdr.gif)
 
 ## Why this exists
 
