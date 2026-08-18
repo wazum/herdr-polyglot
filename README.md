@@ -147,3 +147,14 @@ The overlay names palette slots rather than fixed colours, so it takes on
 whatever herdr theme is active, including a light one.
 [How the pieces fit together](docs/architecture.md), including how to add another
 translation service.
+
+## Credits
+
+Created with ♥ by [Wolfgang Klinger](https://wolfgang-klinger.dev/).
+
+Built on [herdr](https://herdr.dev), [Bubble Tea](https://github.com/charmbracelet/bubbletea)
+and [Lip Gloss](https://github.com/charmbracelet/lipgloss).
+
+## License
+
+[MIT](LICENSE).
