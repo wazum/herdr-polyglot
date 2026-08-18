@@ -53,18 +53,13 @@ func (m Model) header(line int) string {
 func (m Model) badge() string {
 	pieces := []string{m.styles.badge.Render(m.options.Service + " → " + m.options.Language)}
 
-	switch {
-	case m.options.Live && m.options.Pulse:
-		pieces = append(pieces,
-			m.styles.badge.Render("·"), m.pulseGlyph(), m.styles.badge.Render("live"))
-	case m.options.Live:
-		pieces = append(pieces, m.styles.badge.Render("· live"))
-	default:
-		// Saying so is worth a word: ctrl+l is what turns it on.
-		pieces = append(pieces, m.styles.badge.Render("· live off"))
-	}
-
-	pieces = append(pieces, m.styles.badge.Render("· "+m.whatHappens()))
+	// A glyph and the word, always the same width, so switching live translation
+	// on or off does not shift everything after it along the line.
+	pieces = append(pieces,
+		m.styles.badge.Render("·"),
+		m.liveState(),
+		m.styles.badge.Render("· "+m.whatHappens()),
+	)
 	if m.resumed {
 		pieces = append(pieces, m.styles.badge.Render("· resumed draft"))
 	}
@@ -77,13 +72,28 @@ func (m Model) badge() string {
 	return strings.Join(pieces, m.styles.badge.Render(" "))
 }
 
+// A circle that breathes while translating, or a struck-through word when live
+// translation is off. Both are the same width, so nothing after them moves.
+func (m Model) liveState() string {
+	if m.options.Live {
+		glyph := m.styles.bright.Render("●")
+		if m.options.Pulse {
+			glyph = m.pulseGlyph()
+		}
+		return glyph + m.styles.badge.Render(" live")
+	}
+	return m.styles.badge.Render("✘") + m.styles.off.Render(" live")
+}
+
 // The heading has room to say what will happen in words; the footer, which has
-// to hold every key, names the same thing in one.
+// to hold every key, names the same thing in one. Both readings are padded to
+// one width so switching between them moves nothing.
 func (m Model) whatHappens() string {
+	const widest = len("fills the input")
 	if m.delivery == promptflow.Typing {
 		return "fills the input"
 	}
-	return "sends to agent"
+	return fmt.Sprintf("%-*s", widest, "sends to agent")
 }
 
 func (m Model) destination() string {

@@ -3,6 +3,7 @@ package overlay_test
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"strconv"
 	"strings"
 	"testing"
@@ -179,4 +180,38 @@ func TestTheHeadingNeverOutgrowsThePane(t *testing.T) {
 		t.Errorf("the heading does not say what the number counts: %q", heading)
 	}
 	t.Logf("heading at its longest: %q (%d columns)", heading, lipgloss.Width(heading))
+}
+
+// Toggling live translation or the delivery must not shuffle the rest of the
+// heading along the line.
+func TestTheHeadingKeepsItsWidthWhenSettingsChange(t *testing.T) {
+	previous := lipgloss.ColorProfile()
+	lipgloss.SetColorProfile(termenv.Ascii)
+	defer lipgloss.SetColorProfile(previous)
+
+	widths := map[string]int{}
+	for _, live := range []bool{true, false} {
+		for _, review := range []bool{true, false} {
+			flow := promptflow.New(stubTranslator{english: english}, &recordingTarget{}, &recordingTarget{})
+			var model tea.Model = overlay.New(context.Background(), flow, overlay.Options{
+				Service: "deepl", Language: "EN-US", Live: live, Review: review, Pulse: true,
+			})
+			model, _ = model.Update(tea.WindowSizeMsg{Width: 87, Height: 17})
+
+			heading := strings.Split(model.View(), "\n")[0]
+			widths[fmt.Sprintf("live=%v review=%v", live, review)] = lipgloss.Width(heading)
+		}
+	}
+
+	var first int
+	for label, width := range widths {
+		if first == 0 {
+			first = width
+			continue
+		}
+		if width != first {
+			t.Errorf("%s makes the heading %d columns, another combination gives %d: %v",
+				label, width, first, widths)
+		}
+	}
 }

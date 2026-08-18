@@ -26,8 +26,11 @@ type styles struct {
 	faded       lipgloss.Style
 	bright      lipgloss.Style
 	mode        lipgloss.Style
-	draftBox    lipgloss.Style
-	englishBox  lipgloss.Style
+	// off is for a setting that is not in force: struck through and otherwise in
+	// the same colour as the rest, so it reads as switched off, not as faded out.
+	off        lipgloss.Style
+	draftBox   lipgloss.Style
+	englishBox lipgloss.Style
 }
 
 func newStyles() styles {
@@ -46,6 +49,7 @@ func newStyles() styles {
 		faded:       lipgloss.NewStyle().Faint(true),
 		bright:      lipgloss.NewStyle().Foreground(bright).Bold(true),
 		mode:        lipgloss.NewStyle().Foreground(accent).Bold(true),
+		off:         lipgloss.NewStyle().Strikethrough(true),
 
 		draftBox: lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
