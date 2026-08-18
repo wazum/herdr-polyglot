@@ -39,7 +39,10 @@ func TestTheOverlayPaintsWithTheTerminalPaletteOnly(t *testing.T) {
 	}
 }
 
-func TestThePopupIsTallEnoughToLeaveTheDraftItsFullHeight(t *testing.T) {
+// One popup height serves both states: live translation can be switched on at any
+// time and a popup cannot be resized, so the room for the English is always there
+// — taken by the draft while there is nothing to show in it.
+func TestThePopupIsTallEnoughForTheDraftAndTheTranslation(t *testing.T) {
 	for _, live := range []bool{false, true} {
 		flow := promptflow.New(stubTranslator{english: english}, &recordingTarget{}, &recordingTarget{})
 		var model tea.Model = overlay.New(context.Background(), flow, overlay.Options{
@@ -47,12 +50,18 @@ func TestThePopupIsTallEnoughToLeaveTheDraftItsFullHeight(t *testing.T) {
 		})
 		model, _ = model.Update(tea.WindowSizeMsg{
 			Width:  overlay.PopupWidth - overlay.PopupBorder,
-			Height: overlay.PopupHeight(live) - overlay.PopupBorder,
+			Height: overlay.PopupHeight() - overlay.PopupBorder,
 		})
 
-		if rows := overlay.DraftRows(model.(overlay.Model)); rows != overlay.DraftHeight {
-			t.Errorf("live=%v: the draft got %d rows in a popup of %d, want its full %d",
-				live, rows, overlay.PopupHeight(live), overlay.DraftHeight)
+		rows := overlay.DraftRows(model.(overlay.Model))
+		if live && rows != overlay.DraftHeight {
+			t.Errorf("with live on the draft got %d rows, want its full %d", rows, overlay.DraftHeight)
+		}
+		if !live && rows < overlay.DraftHeight {
+			t.Errorf("with live off the draft got %d rows, want at least %d", rows, overlay.DraftHeight)
+		}
+		if !overlay.ShowsEnglish(model.(overlay.Model), true) {
+			t.Error("the popup has no room for the translation, so ctrl+l would pay for nothing")
 		}
 	}
 }

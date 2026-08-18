@@ -35,3 +35,10 @@ func ConfirmationOf(m Model, draft, translated string) Model {
 }
 
 func IsConfirming(m Model) bool { return m.stage == confirming }
+
+// ShowsEnglish answers whether the pane has room for the translation, live on or
+// off, which is what makes ctrl+l worth pressing.
+func ShowsEnglish(m Model, live bool) bool {
+	m.options.Live = live
+	return m.showsEnglish()
+}

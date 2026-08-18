@@ -72,6 +72,9 @@ const (
 	draftHeight     = 6
 	// A prompt is rarely one line, so the draft keeps this many rows and scrolls.
 	minDraftRows = 4
+	// pastedAtOnce is how much text arriving in one keystroke counts as pasted
+	// rather than written. Nobody types this much between two updates.
+	pastedAtOnce = 200
 
 	defaultDebounce     = 600 * time.Millisecond
 	defaultMaxDraft     = 2_000
@@ -98,13 +101,12 @@ const (
 	PopupWidth = 90
 )
 
-// A popup larger than this hides the agent's output for nothing.
-func PopupHeight(live bool) int {
-	height := dialogRows + PopupBorder
-	if live {
-		height += englishRows
-	}
-	return height
+// PopupHeight leaves room for the translation whether live translation starts on
+// or off: a popup cannot be resized once open, and ctrl+l must never translate
+// into a pane with nowhere to show the result. With live off the draft has the
+// room instead.
+func PopupHeight() int {
+	return dialogRows + englishRows + PopupBorder
 }
 
 type Model struct {
@@ -479,6 +481,15 @@ func (m Model) handleKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.resumed = false
 	}
 
+	// A wall of text arriving at once was pasted, not written, and paying to
+	// translate it is a decision, not a side effect of pasting.
+	if added := grown(before, m.draft.Value()); m.options.Live && added >= pastedAtOnce {
+		m.options.Live = false
+		m.resize(m.pane.Width - draftFrame)
+		return m, tea.Batch(cmd, hint(fmt.Sprintf(
+			"%d characters pasted, so live is off — ctrl+l translates it", added)))
+	}
+
 	// Translating a pasted wall of text again after every pause would spend the
 	// allowance on something this box is not for.
 	if after := m.draft.Value(); m.options.Live && after != before && !m.draftIsTooLong() {
@@ -488,6 +499,11 @@ func (m Model) handleKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, tea.Batch(cmd, m.schedulePreview())
 	}
 	return m, cmd
+}
+
+// grown is how much longer the draft got, counted in characters rather than bytes.
+func grown(before, after string) int {
+	return len([]rune(after)) - len([]rune(before))
 }
 
 func (m Model) draftIsTooLong() bool {
