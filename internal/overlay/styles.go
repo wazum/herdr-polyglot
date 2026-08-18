@@ -7,8 +7,8 @@ import "github.com/charmbracelet/lipgloss"
 // theme is running decide how they look.
 var (
 	accent = lipgloss.Color("5")
-	muted  = lipgloss.Color("8")
 	danger = lipgloss.Color("1")
+	// The frame is a line, not something to read, so grey suits it.
 	frame  = lipgloss.Color("8")
 	bright = lipgloss.Color("13")
 )
@@ -31,16 +31,19 @@ type styles struct {
 }
 
 func newStyles() styles {
+	// Anything meant to be read keeps the terminal's own foreground: grey on a
+	// dark theme, or on a light one, is what makes a popup unreadable. The
+	// difference between a key and its label is weight, not brightness.
 	return styles{
 		text:        lipgloss.NewStyle(),
-		placeholder: lipgloss.NewStyle().Foreground(muted),
+		placeholder: lipgloss.NewStyle().Faint(true),
 		cursor:      lipgloss.NewStyle().Foreground(accent),
-		badge:       lipgloss.NewStyle().Foreground(muted),
-		hint:        lipgloss.NewStyle().Foreground(muted),
-		key:         lipgloss.NewStyle().Foreground(accent),
+		badge:       lipgloss.NewStyle(),
+		hint:        lipgloss.NewStyle(),
+		key:         lipgloss.NewStyle().Foreground(accent).Bold(true),
 		accent:      lipgloss.NewStyle().Foreground(accent),
-		danger:      lipgloss.NewStyle().Foreground(danger),
-		faded:       lipgloss.NewStyle().Foreground(muted).Faint(true),
+		danger:      lipgloss.NewStyle().Foreground(danger).Bold(true),
+		faded:       lipgloss.NewStyle().Faint(true),
 		bright:      lipgloss.NewStyle().Foreground(bright).Bold(true),
 		mode:        lipgloss.NewStyle().Foreground(accent).Bold(true),
 
