@@ -1,12 +1,23 @@
 name: CI
 
+# Branches only: a tag adds nothing that its commit has not already been checked
+# for. Actions and tools are pinned by commit or version, so a moving tag cannot
+# change what runs here.
 on:
   push:
-    branches: [main]
+    branches: ['**']
   pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
+
+env:
+  GOLANGCI_LINT_VERSION: v2.12.2
+  GOVULNCHECK_VERSION: v1.7.0
 
 jobs:
   test:
@@ -16,8 +27,8 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest]
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-go@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version: stable
           cache: true
@@ -28,30 +39,30 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-go@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version: stable
           cache: true
-      - uses: golangci/golangci-lint-action@v8
+      - uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
         with:
-          version: latest
+          version: ${{ env.GOLANGCI_LINT_VERSION }}
       - name: Check formatting
         run: golangci-lint fmt --diff
 
   vulnerabilities:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-go@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version: stable
           cache: true
-      - run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+      - run: go run golang.org/x/vuln/cmd/govulncheck@${{ env.GOVULNCHECK_VERSION }} ./...
 
   shell:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Lint shell scripts
         run: shellcheck herdr/*.sh
