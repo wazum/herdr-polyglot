@@ -211,13 +211,22 @@ func TestEnterAddsALineInsteadOfSending(t *testing.T) {
 	overlayUnderTest.WaitFinished(t, teatest.WithFinalTimeout(2*time.Second))
 }
 
-func TestAltEnterAlsoSends(t *testing.T) {
+// An alt chord arrives as an escape followed by the key, so escape and then
+// enter in quick succession must not be mistaken for a send.
+func TestAltEnterDoesNotSend(t *testing.T) {
 	t.Parallel()
 	target := &recordingTarget{}
 
 	overlayUnderTest := newOverlay(t, stubTranslator{english: english}, target)
 	overlayUnderTest.Type(draft)
 	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyEnter, Alt: true})
+	time.Sleep(200 * time.Millisecond)
+
+	if len(target.inserted) != 0 {
+		t.Errorf("target received %v, want nothing sent without ctrl+d", target.inserted)
+	}
+
+	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyCtrlD})
 	overlayUnderTest.WaitFinished(t, teatest.WithFinalTimeout(2*time.Second))
 
 	if len(target.inserted) != 1 || target.inserted[0] != english {
