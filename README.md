@@ -84,7 +84,7 @@ command = "wazum.polyglot.prompt"
 description = "write a prompt in your own language"
 
 [[keys.command]]
-key = "prefix+shift+t"
+key = "prefix+d"
 type = "plugin_action"
 command = "wazum.polyglot.compose"
 description = "write a prompt, review before sending"
@@ -92,6 +92,12 @@ description = "write a prompt, review before sending"
 
 `prompt` sends the translated prompt straight to the agent. `compose` types it
 into the agent's input and leaves the final keystroke to you.
+
+`t` as in translate, because herdr already uses `prefix+p` for the previous tab
+and `prefix+shift+p` for renaming a pane. Free letters are few: `a`, `d`, `f`,
+`i`, `m`, `t`, `u` and `y`. If you would rather have `p`, move herdr's
+`previous_tab` elsewhere in the same file, or bind a modifier chord such as
+`alt+p` that needs no prefix at all.
 
 ## In the popup
 
