@@ -38,6 +38,9 @@ type Options struct {
 	// Confirm shows the English and waits for a second key before delivering.
 	Confirm  bool
 	Debounce time.Duration
+	// MaxDraft is how long a prompt may get before the box says something. This
+	// is a place for prompts, not for pasted files.
+	MaxDraft int
 	// Drafts keeps an unfinished prompt between sessions. Without one the draft
 	// simply goes when the popup closes.
 	Drafts Drafts
@@ -65,6 +68,7 @@ const (
 	draftHeight     = 6
 
 	defaultDebounce = 600 * time.Millisecond
+	defaultMaxDraft = 2_000
 
 	// PopupBorder is the frame herdr draws around a popup pane.
 	PopupBorder = 2
@@ -131,6 +135,9 @@ func New(ctx context.Context, prompter Prompter, options Options) Model {
 
 	if options.Debounce <= 0 {
 		options.Debounce = defaultDebounce
+	}
+	if options.MaxDraft <= 0 {
+		options.MaxDraft = defaultMaxDraft
 	}
 
 	model := Model{
@@ -314,13 +321,19 @@ func (m Model) handleKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.resumed = false
 	}
 
-	if after := m.draft.Value(); m.options.Live && after != before {
+	// Translating a pasted wall of text again after every pause would spend the
+	// allowance on something this box is not for.
+	if after := m.draft.Value(); m.options.Live && after != before && !m.draftIsTooLong() {
 		m.revision++
 		m.stopPreview()
 		m.previewError = nil
 		return m, tea.Batch(cmd, m.schedulePreview())
 	}
 	return m, cmd
+}
+
+func (m Model) draftIsTooLong() bool {
+	return len([]rune(m.draft.Value())) > m.options.MaxDraft
 }
 
 func (m Model) schedulePreview() tea.Cmd {

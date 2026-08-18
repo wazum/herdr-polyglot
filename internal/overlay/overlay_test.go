@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -889,5 +890,105 @@ func TestAServiceWithoutAnAllowanceShowsNoCount(t *testing.T) {
 	}
 	if bytes.Contains(shown, []byte("/1M")) || bytes.Contains(shown, []byte("0/0")) {
 		t.Error("the header shows an allowance the service never reported")
+	}
+}
+
+func longOverlay(t *testing.T, translator promptflow.Translator, target promptflow.Target) *teatest.TestModel {
+	t.Helper()
+	return newOverlayWith(t, translator, target, overlay.Options{
+		Service:  "deepl",
+		Language: "EN-US",
+		Live:     true,
+		Debounce: 20 * time.Millisecond,
+		MaxDraft: 200,
+	})
+}
+
+func TestPastingFarMoreThanAPromptSaysSo(t *testing.T) {
+	t.Parallel()
+
+	overlayUnderTest := longOverlay(t, stubTranslator{english: english}, &recordingTarget{})
+	overlayUnderTest.Send(tea.KeyMsg{
+		Type:  tea.KeyRunes,
+		Runes: []rune(strings.Repeat("sehr langer Text ", 40)),
+		Paste: true,
+	})
+
+	teatest.WaitFor(t, overlayUnderTest.Output(), func(out []byte) bool {
+		return bytes.Contains(out, []byte("680 characters"))
+	}, teatest.WithDuration(2*time.Second))
+
+	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyCtrlC})
+	overlayUnderTest.WaitFinished(t, teatest.WithFinalTimeout(2*time.Second))
+}
+
+func TestTheWarningGoesWhenTheDraftIsShortAgain(t *testing.T) {
+	t.Parallel()
+
+	overlayUnderTest := longOverlay(t, stubTranslator{english: english}, &recordingTarget{})
+	overlayUnderTest.Send(tea.KeyMsg{
+		Type:  tea.KeyRunes,
+		Runes: []rune(strings.Repeat("x", 400)),
+		Paste: true,
+	})
+	teatest.WaitFor(t, overlayUnderTest.Output(), func(out []byte) bool {
+		return bytes.Contains(out, []byte("characters"))
+	}, teatest.WithDuration(2*time.Second))
+
+	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyCtrlU})
+	overlayUnderTest.Type("kurz")
+	teatest.WaitFor(t, overlayUnderTest.Output(), func(out []byte) bool {
+		return bytes.Contains(out, []byte("kurz"))
+	}, teatest.WithDuration(2*time.Second))
+
+	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyCtrlC})
+	overlayUnderTest.WaitFinished(t, teatest.WithFinalTimeout(2*time.Second))
+
+	last, err := io.ReadAll(overlayUnderTest.FinalOutput(t))
+	if err != nil {
+		t.Fatalf("reading the last frame: %v", err)
+	}
+	if bytes.Contains(last, []byte("characters")) {
+		t.Error("the warning is still shown for a draft that is short again")
+	}
+}
+
+// Translating a pasted wall of text again after every pause would spend the
+// allowance on something the tool is not for.
+func TestNothingIsTranslatedWhileTheDraftIsTooLong(t *testing.T) {
+	t.Parallel()
+	translator := &countingTranslator{english: english}
+
+	overlayUnderTest := longOverlay(t, translator, &recordingTarget{})
+	overlayUnderTest.Send(tea.KeyMsg{
+		Type:  tea.KeyRunes,
+		Runes: []rune(strings.Repeat("y", 500)),
+		Paste: true,
+	})
+	time.Sleep(400 * time.Millisecond)
+
+	if calls := translator.count(); calls != 0 {
+		t.Errorf("the translator was called %d times, want the long draft left alone", calls)
+	}
+
+	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyCtrlC})
+	overlayUnderTest.WaitFinished(t, teatest.WithFinalTimeout(2*time.Second))
+}
+
+func TestALongDraftCanStillBeSent(t *testing.T) {
+	t.Parallel()
+	target := &recordingTarget{}
+
+	overlayUnderTest := longOverlay(t, stubTranslator{english: english}, target)
+	overlayUnderTest.Send(tea.KeyMsg{
+		Type:  tea.KeyRunes,
+		Runes: []rune(strings.Repeat("z", 500)),
+		Paste: true,
+	})
+	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyCtrlD})
+	overlayUnderTest.WaitFinished(t, teatest.WithFinalTimeout(3*time.Second))
+
+	if len(target.inserted) != 1 {
+		t.Errorf("target received %v, want the prompt sent anyway", target.inserted)
 	}
 }

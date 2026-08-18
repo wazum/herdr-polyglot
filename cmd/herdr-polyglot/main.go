@@ -88,6 +88,7 @@ func run(ctx context.Context) error {
 			Vim:      settings.Vim,
 			Live:     settings.Live,
 			Confirm:  settings.Confirm,
+			MaxDraft: settings.MaxDraft,
 			Drafts:   drafts(settings.KeepDraft, settings.StateDir, settings.Target),
 		}),
 		tea.WithContext(ctx),

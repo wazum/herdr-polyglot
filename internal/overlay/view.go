@@ -1,6 +1,7 @@
 package overlay
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -104,6 +105,11 @@ func (m Model) footer(line int) string {
 	switch {
 	case m.failure != nil:
 		return spread(mode+dangerStyle.Render("✗ "+m.failure.Error()), hintStyle.Render("ctrl+c close"), line)
+	case m.draftIsTooLong():
+		return spread(
+			mode+dangerStyle.Render(fmt.Sprintf("⚠ %d characters", len([]rune(m.draft.Value()))))+
+				hintStyle.Render(" — this box is for prompts you write, not files you paste"),
+			hintStyle.Render("ctrl+u discard"), line)
 	case m.stage == confirming:
 		return spread(
 			keyStyle.Render("ctrl+d")+hintStyle.Render(" send this")+

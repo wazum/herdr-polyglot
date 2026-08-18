@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/wazum/herdr-polyglot/internal/translation"
@@ -24,6 +25,7 @@ const (
 	liveVar      = "HERDR_POLYGLOT_LIVE"
 	keepDraftVar = "HERDR_POLYGLOT_KEEP_DRAFT"
 	confirmVar   = "HERDR_POLYGLOT_CONFIRM"
+	maxDraftVar  = "HERDR_POLYGLOT_MAX_DRAFT"
 	stateDirVar  = "HERDR_PLUGIN_STATE_DIR"
 	configDirVar = "HERDR_PLUGIN_CONFIG_DIR"
 	binaryVar    = "HERDR_BIN_PATH"
@@ -47,6 +49,7 @@ type Settings struct {
 	Live        bool
 	KeepDraft   bool
 	Confirm     bool
+	MaxDraft    int
 }
 
 // The environment wins over the .env file, so a one-off invocation can
@@ -82,6 +85,7 @@ func Load(getenv func(string) string) (Settings, error) {
 		Live:        isEnabled(lookup(liveVar)),
 		KeepDraft:   !isDisabled(lookup(keepDraftVar)),
 		Confirm:     isEnabled(lookup(confirmVar)),
+		MaxDraft:    wholeNumber(lookup(maxDraftVar)),
 		Options: translation.Options{
 			APIKey:         orDefault(lookup(scopedKeyVar(provider)), lookup(apiKeyVar)),
 			TargetLanguage: orDefault(lookup(languageVar), defaultLanguage),
@@ -102,6 +106,14 @@ func scopedKeyVar(provider string) string {
 	}
 	scope := strings.ToUpper(strings.NewReplacer("-", "_", ".", "_").Replace(provider))
 	return "HERDR_POLYGLOT_" + scope + "_API_KEY"
+}
+
+func wholeNumber(value string) int {
+	number, err := strconv.Atoi(strings.TrimSpace(value))
+	if err != nil || number < 0 {
+		return 0
+	}
+	return number
 }
 
 func orDefault(value, fallback string) string {
