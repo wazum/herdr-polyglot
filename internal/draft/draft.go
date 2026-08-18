@@ -41,7 +41,9 @@ func (s Slot) Load() string {
 	return string(kept)
 }
 
-// Save keeps the draft, or removes it when there is nothing left to keep.
+// Save keeps the draft, or removes it when there is nothing left to keep. It
+// writes a fresh file and moves it into place, which keeps the draft private
+// even if something replaced the old file with a link or loosened its access.
 func (s Slot) Save(text string) error {
 	if s.path == "" {
 		return nil
@@ -49,8 +51,26 @@ func (s Slot) Save(text string) error {
 	if strings.TrimSpace(text) == "" {
 		return s.Clear()
 	}
+
 	// A draft is unfinished thinking about the author's own work.
-	if err := os.WriteFile(s.path, []byte(text), 0o600); err != nil {
+	fresh, err := os.CreateTemp(filepath.Dir(s.path), "writing-*")
+	if err != nil {
+		return fmt.Errorf("keeping the draft: %w", err)
+	}
+	defer os.Remove(fresh.Name())
+
+	if err := fresh.Chmod(0o600); err != nil {
+		_ = fresh.Close()
+		return fmt.Errorf("keeping the draft private: %w", err)
+	}
+	if _, err := fresh.WriteString(text); err != nil {
+		_ = fresh.Close()
+		return fmt.Errorf("keeping the draft: %w", err)
+	}
+	if err := fresh.Close(); err != nil {
+		return fmt.Errorf("keeping the draft: %w", err)
+	}
+	if err := os.Rename(fresh.Name(), s.path); err != nil {
 		return fmt.Errorf("keeping the draft: %w", err)
 	}
 	return nil

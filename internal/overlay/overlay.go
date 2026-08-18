@@ -4,6 +4,8 @@ package overlay
 import (
 	"context"
 	"errors"
+	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -404,8 +406,13 @@ func (m Model) close() (tea.Model, tea.Cmd) {
 }
 
 func (m Model) forgetDraft() {
-	if m.options.Drafts != nil {
-		_ = m.options.Drafts.Clear()
+	if m.options.Drafts == nil {
+		return
+	}
+	if err := m.options.Drafts.Clear(); err != nil {
+		// The prompt is already delivered, so this cannot stop anything; herdr
+		// keeps what a plugin writes here in its log.
+		fmt.Fprintln(os.Stderr, "polyglot: the sent draft could not be forgotten:", err)
 	}
 }
 
