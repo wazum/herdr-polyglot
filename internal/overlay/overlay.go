@@ -159,7 +159,7 @@ func New(ctx context.Context, prompter Prompter, options Options) Model {
 
 	draft := vimarea.New(
 		vimarea.WithVim(options.Vim),
-		vimarea.WithPlaceholder("Write your prompt in your own language …"),
+		vimarea.WithPlaceholder("Your prompt, in your own language …"),
 		vimarea.WithStyles(look.text, look.placeholder, look.cursor),
 	)
 	draft.SetHeight(draftHeight)
@@ -444,6 +444,7 @@ func (m Model) handleKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// ctrl+u clears the whole draft, as it clears a line in a shell. The text
 	// area would otherwise use it to delete back to the line start.
 	case key.Type == tea.KeyCtrlU:
+		m.stage = composing
 		m.draft.Clear()
 		m.forgetDraft()
 		m.resumed = false
@@ -470,6 +471,9 @@ func (m Model) handleKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	m.draft, cmd = m.draft.Update(key)
 
+	if m.draft.Value() != before && m.stage == confirming {
+		m.stage = composing
+	}
 	if m.draft.Value() != before {
 		// Once it has been edited it is this session's draft, not an old one.
 		m.resumed = false
@@ -525,6 +529,12 @@ func (m Model) translateForConfirmation() (tea.Model, tea.Cmd) {
 }
 
 func (m Model) deliverPreview() (tea.Model, tea.Cmd) {
+	// The translation on screen is what the author agreed to send. If the draft
+	// has moved on since, there is nothing to agree to yet.
+	if !m.previewIsCurrent() {
+		return m.startSubmit()
+	}
+
 	prompt := m.preview
 	m.stage = translating
 

@@ -25,3 +25,13 @@ func UsageSeen(spent translation.Usage) tea.Msg {
 }
 
 const MinDraftRows = minDraftRows
+
+// ConfirmationOf puts the model in front of a translation of another draft, the
+// state a stale confirmation would leave it in.
+func ConfirmationOf(m Model, draft, translated string) Model {
+	m.stage = confirming
+	m.preview, m.previewOf = translated, draft
+	return m
+}
+
+func IsConfirming(m Model) bool { return m.stage == confirming }
