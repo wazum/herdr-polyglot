@@ -39,12 +39,12 @@ Show
 
 # From here it is the plugin: the keybinding, the prompt, the translation, and the
 # English typed into the agent's input.
-Sleep 1500ms
+Sleep 2500ms
 Ctrl+B
 Sleep 400ms
 Type "t"
 Sleep 2s
-Type "Bitte behebe den fehlschlagenden Test im Warenkorb."
+Type "Bitte behebe den fehlschlagenden Test in `berechneRabatt()`."
 Sleep 3500ms
 Type " Nutze Tabellentests."
 Sleep 4s

@@ -12,7 +12,7 @@ input. It works with *Claude Code*, *Codex*, *opencode* and the rest, because
 the prompt goes through *herdr* rather than into a particular tool.
 
 ![the popup over a Claude Code pane: a German prompt written, translated, and
-typed into the agent's input](demo/polyglot-in-herdr.gif)
+typed into the agent's input](demo/polyglot-in-herdr.gif?1787075576)
 
 ## Why this exists
 

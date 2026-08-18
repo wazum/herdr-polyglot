@@ -17,8 +17,8 @@ Enter
 Sleep 2s
 Show
 
-Sleep 1s
-Type "Bitte behebe den fehlschlagenden Test im Checkout-Formular."
+Sleep 2500ms
+Type "Bitte behebe den fehlschlagenden Test in `berechneRabatt()`."
 Sleep 3s
 Type " Ergänze einen Fall für leere Warenkörbe."
 Sleep 4s
