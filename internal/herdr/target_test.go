@@ -6,7 +6,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/wazum/herdr-deepl-prompt/internal/herdr"
+	"github.com/wazum/herdr-polyglot/internal/herdr"
 )
 
 type recordingRunner struct{ calls [][]string }

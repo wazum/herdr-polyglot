@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/wazum/herdr-deepl-prompt/internal/config"
+	"github.com/wazum/herdr-polyglot/internal/config"
 )
 
 func envFrom(pairs map[string]string) func(string) string {

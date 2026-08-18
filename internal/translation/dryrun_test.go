@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/wazum/herdr-deepl-prompt/internal/translation"
+	"github.com/wazum/herdr-polyglot/internal/translation"
 )
 
 func TestDryRunMarksTheDraftInsteadOfCallingAnAPI(t *testing.T) {

@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/wazum/herdr-deepl-prompt/internal/deepl"
+	"github.com/wazum/herdr-polyglot/internal/deepl"
 )
 
 type capturedRequest struct {

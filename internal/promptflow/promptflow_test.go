@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/wazum/herdr-deepl-prompt/internal/promptflow"
+	"github.com/wazum/herdr-polyglot/internal/promptflow"
 )
 
 type stubTranslator struct {

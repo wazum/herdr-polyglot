@@ -9,7 +9,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/wazum/herdr-deepl-prompt/internal/promptflow"
+	"github.com/wazum/herdr-polyglot/internal/promptflow"
 )
 
 // Submitter turns the composed draft into a prompt in the agent's input.

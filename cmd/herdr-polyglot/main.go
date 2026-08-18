@@ -1,4 +1,4 @@
-// Command herdr-deepl-prompt opens an overlay for composing a prompt in your
+// Command herdr-polyglot opens an overlay for composing a prompt in your
 // own language and delivers it to a herdr agent as English.
 package main
 
@@ -10,17 +10,17 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/wazum/herdr-deepl-prompt/internal/config"
-	"github.com/wazum/herdr-deepl-prompt/internal/deepl"
-	"github.com/wazum/herdr-deepl-prompt/internal/herdr"
-	"github.com/wazum/herdr-deepl-prompt/internal/overlay"
-	"github.com/wazum/herdr-deepl-prompt/internal/promptflow"
-	"github.com/wazum/herdr-deepl-prompt/internal/translation"
+	"github.com/wazum/herdr-polyglot/internal/config"
+	"github.com/wazum/herdr-polyglot/internal/deepl"
+	"github.com/wazum/herdr-polyglot/internal/herdr"
+	"github.com/wazum/herdr-polyglot/internal/overlay"
+	"github.com/wazum/herdr-polyglot/internal/promptflow"
+	"github.com/wazum/herdr-polyglot/internal/translation"
 )
 
 func main() {
 	if err := run(context.Background()); err != nil {
-		fmt.Fprintln(os.Stderr, "herdr-deepl-prompt:", err)
+		fmt.Fprintln(os.Stderr, "herdr-polyglot:", err)
 		os.Exit(1)
 	}
 }

@@ -5,4 +5,4 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 mkdir -p bin
-go build -o bin/herdr-deepl-prompt ./cmd/herdr-deepl-prompt
+go build -o bin/herdr-polyglot ./cmd/herdr-polyglot

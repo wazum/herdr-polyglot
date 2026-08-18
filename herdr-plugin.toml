@@ -15,7 +15,7 @@ command = ["bash", "herdr/install.sh"]
 id = "overlay"
 title = "deepl-prompt"
 placement = "overlay"
-command = ["sh", "-c", "exec \"$HERDR_PLUGIN_ROOT/bin/herdr-deepl-prompt\""]
+command = ["sh", "-c", "exec \"$HERDR_PLUGIN_ROOT/bin/herdr-polyglot\""]
 
 [[actions]]
 id = "prompt"

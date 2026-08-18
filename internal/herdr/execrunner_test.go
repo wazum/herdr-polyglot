@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/wazum/herdr-deepl-prompt/internal/herdr"
+	"github.com/wazum/herdr-polyglot/internal/herdr"
 )
 
 func writeFakeBinary(t *testing.T, body string) string {

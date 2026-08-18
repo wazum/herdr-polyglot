@@ -1,4 +1,4 @@
-module github.com/wazum/herdr-deepl-prompt
+module github.com/wazum/herdr-polyglot
 
 go 1.26.4
 

@@ -10,8 +10,8 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/exp/teatest"
 
-	"github.com/wazum/herdr-deepl-prompt/internal/overlay"
-	"github.com/wazum/herdr-deepl-prompt/internal/promptflow"
+	"github.com/wazum/herdr-polyglot/internal/overlay"
+	"github.com/wazum/herdr-polyglot/internal/promptflow"
 )
 
 const (
