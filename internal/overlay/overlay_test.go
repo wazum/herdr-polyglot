@@ -635,12 +635,13 @@ func TestEscapeClosesAWrittenDraftAndKeepsIt(t *testing.T) {
 
 type fakeDrafts struct {
 	kept      string
+	loadError error
 	saved     []string
 	cleared   int
 	saveError error
 }
 
-func (f *fakeDrafts) Load() string { return f.kept }
+func (f *fakeDrafts) Load() (string, error) { return f.kept, f.loadError }
 
 func (f *fakeDrafts) Save(text string) error {
 	if f.saveError != nil {

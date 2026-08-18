@@ -5,6 +5,7 @@ package draft
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -30,15 +31,22 @@ func (s Store) For(target string) Slot {
 // Slot is the draft belonging to one pane.
 type Slot struct{ path string }
 
-func (s Slot) Load() string {
+// Load returns nothing when there is no draft. Any other trouble is reported: a
+// draft that is there but unreadable would otherwise look like an empty box, and
+// the next save would write over it.
+func (s Slot) Load() (string, error) {
 	if s.path == "" {
-		return ""
+		return "", nil
 	}
+
 	kept, err := os.ReadFile(s.path)
-	if err != nil {
-		return ""
+	switch {
+	case errors.Is(err, os.ErrNotExist):
+		return "", nil
+	case err != nil:
+		return "", fmt.Errorf("reading the kept draft: %w", err)
 	}
-	return string(kept)
+	return string(kept), nil
 }
 
 // Save keeps the draft, or removes it when there is nothing left to keep. It

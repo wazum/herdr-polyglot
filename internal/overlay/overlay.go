@@ -52,7 +52,7 @@ type Options struct {
 
 // Drafts is the pane's own unfinished prompt.
 type Drafts interface {
-	Load() string
+	Load() (string, error)
 	Save(text string) error
 	Clear() error
 }
@@ -121,6 +121,9 @@ type Model struct {
 	stage    stage
 	// failure is a broken way out, so it stays on screen.
 	failure error
+	// loadFailure is a kept draft that could not be read, which the author has to
+	// hear about: writing here and closing would write over it.
+	loadFailure error
 	// notice is something that did not work, hint something worth knowing. Both go
 	// by themselves; escape is quicker.
 	notice  error
@@ -191,7 +194,9 @@ func New(ctx context.Context, prompter Prompter, options Options) Model {
 	}
 	model.resize(maxContentWidth)
 	if options.Drafts != nil {
-		if kept := options.Drafts.Load(); kept != "" {
+		kept, err := options.Drafts.Load()
+		model.loadFailure = err
+		if kept != "" {
 			model.draft.Resume(kept)
 			model.resumed = true
 			// Whatever came back is paid for by the character if it is translated,
@@ -232,6 +237,9 @@ func (m Model) Init() tea.Cmd {
 	// The allowance is asked for after the box is already on screen, so nothing
 	// waits for the network.
 	started := []tea.Cmd{textarea.Blink, m.askUsage()}
+	if m.loadFailure != nil {
+		started = append(started, refuse(m.loadFailure))
+	}
 	if m.heldBackLive {
 		started = append(started, hint("resumed draft, so live is off — ctrl+l translates it"))
 	}
@@ -342,6 +350,10 @@ func (m Model) raiseNotice(why error) (tea.Model, tea.Cmd) {
 
 func hint(what string) tea.Cmd {
 	return func() tea.Msg { return hintMsg{what: what} }
+}
+
+func refuse(why error) tea.Cmd {
+	return func() tea.Msg { return submitFailedMsg{err: why} }
 }
 
 func (m *Model) startNoticeClock() tea.Cmd {

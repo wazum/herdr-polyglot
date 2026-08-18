@@ -16,10 +16,10 @@ func TestADraftComesBackForThePaneItWasWrittenFor(t *testing.T) {
 		t.Fatalf("Save returned unexpected error: %v", err)
 	}
 
-	if kept := store.For("w1:p3").Load(); kept != "Bitte behebe den Test" {
+	if kept, _ := store.For("w1:p3").Load(); kept != "Bitte behebe den Test" {
 		t.Errorf("Load returned %q, want the saved draft", kept)
 	}
-	if other := store.For("w1:p9").Load(); other != "" {
+	if other, _ := store.For("w1:p9").Load(); other != "" {
 		t.Errorf("another pane sees %q, want its own empty draft", other)
 	}
 }
@@ -36,7 +36,7 @@ func TestASentDraftIsForgotten(t *testing.T) {
 		t.Fatalf("Clear returned unexpected error: %v", err)
 	}
 
-	if kept := slot.Load(); kept != "" {
+	if kept, _ := slot.Load(); kept != "" {
 		t.Errorf("Load returned %q after clearing, want nothing", kept)
 	}
 }
@@ -100,7 +100,7 @@ func TestAPaneIdNeverEscapesTheStoreDirectory(t *testing.T) {
 	if len(entries) != 1 {
 		t.Fatalf("the store holds %d files, want the draft inside it", len(entries))
 	}
-	if kept := store.For("../../escaped").Load(); kept != "Bitte behebe den Test" {
+	if kept, _ := store.For("../../escaped").Load(); kept != "Bitte behebe den Test" {
 		t.Errorf("Load returned %q, want the draft back", kept)
 	}
 }
@@ -112,7 +112,7 @@ func TestWithoutAStoreDirectoryNothingIsKeptAndNothingFails(t *testing.T) {
 	if err := slot.Save("Bitte behebe den Test"); err != nil {
 		t.Errorf("Save returned %v, want a missing store to be no error", err)
 	}
-	if kept := slot.Load(); kept != "" {
+	if kept, _ := slot.Load(); kept != "" {
 		t.Errorf("Load returned %q, want nothing", kept)
 	}
 	if err := slot.Clear(); err != nil {
@@ -180,5 +180,48 @@ func TestASymbolicLinkIsNotFollowedOutOfTheStore(t *testing.T) {
 	}
 	if string(outside) != "do not touch" {
 		t.Errorf("the file outside the store now holds %q", outside)
+	}
+}
+
+// A draft that is there but cannot be read is not the same as no draft: saying so
+// is the only warning before the next save writes over it.
+func TestADraftThatCannotBeReadIsNotReportedAsAbsent(t *testing.T) {
+	t.Parallel()
+	directory := t.TempDir()
+	store := draft.NewStore(directory)
+	slot := store.For("w1:p1")
+
+	if err := slot.Save("Bitte behebe den Test"); err != nil {
+		t.Fatalf("Save returned unexpected error: %v", err)
+	}
+
+	kept, err := os.ReadDir(directory)
+	if err != nil || len(kept) != 1 {
+		t.Fatalf("the store holds %v (%v), want the one draft", kept, err)
+	}
+	unreadable := filepath.Join(directory, kept[0].Name())
+	if err := os.Chmod(unreadable, 0o000); err != nil {
+		t.Fatalf("making the draft unreadable: %v", err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(unreadable, 0o600) })
+
+	text, err := slot.Load()
+	if err == nil {
+		t.Error("Load returned no error for a draft it could not read")
+	}
+	if text != "" {
+		t.Errorf("Load returned %q, want nothing alongside the error", text)
+	}
+}
+
+func TestAMissingDraftIsSimplyEmpty(t *testing.T) {
+	t.Parallel()
+
+	text, err := draft.NewStore(t.TempDir()).For("w1:p1").Load()
+	if err != nil {
+		t.Errorf("Load returned %v for a pane with no draft, want no error", err)
+	}
+	if text != "" {
+		t.Errorf("Load returned %q, want nothing", text)
 	}
 }

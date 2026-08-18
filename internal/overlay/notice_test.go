@@ -3,6 +3,7 @@ package overlay_test
 import (
 	"bytes"
 	"context"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -82,6 +83,23 @@ func TestEscapeTakesTheNoticeAwayWithoutClosingThePopup(t *testing.T) {
 	// A closed popup would never show this.
 	teatest.WaitFor(t, overlayUnderTest.Output(), func(out []byte) bool {
 		return bytes.Contains(out, []byte("weiter geht es"))
+	}, teatest.WithDuration(2*time.Second))
+
+	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyCtrlC})
+	overlayUnderTest.WaitFinished(t, teatest.WithFinalTimeout(2*time.Second))
+}
+
+// A kept draft that cannot be read must be said out loud: writing here and
+// closing would write over whatever is in that file.
+func TestADraftThatCannotBeReadIsReported(t *testing.T) {
+	t.Parallel()
+
+	drafts := &fakeDrafts{loadError: errors.New("permission denied")}
+	overlayUnderTest := newOverlayWith(t, stubTranslator{english: english}, &recordingTarget{},
+		overlay.Options{Service: "deepl", Language: "EN-US", Drafts: drafts})
+
+	teatest.WaitFor(t, overlayUnderTest.Output(), func(out []byte) bool {
+		return bytes.Contains(out, []byte("permission denied"))
 	}, teatest.WithDuration(2*time.Second))
 
 	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyCtrlC})

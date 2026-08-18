@@ -180,9 +180,9 @@ func lastLine(rendered string) string {
 
 type keptDraft struct{}
 
-func (keptDraft) Load() string      { return "ein alter Entwurf" }
-func (keptDraft) Save(string) error { return nil }
-func (keptDraft) Clear() error      { return nil }
+func (keptDraft) Load() (string, error) { return "ein alter Entwurf", nil }
+func (keptDraft) Save(string) error     { return nil }
+func (keptDraft) Clear() error          { return nil }
 
 // The heading grows with what it has to say; wrapping it onto the draft would
 // break the whole popup, so it is cut instead.
