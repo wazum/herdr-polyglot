@@ -1,0 +1,23 @@
+id = "wazum.deepl-prompt"
+name = "deepl-prompt"
+version = "0.1.0"
+min_herdr_version = "0.8.0"
+platforms = ["macos", "linux"]
+description = "Write agent prompts in your own language; DeepL delivers them as English."
+
+[[build]]
+command = ["bash", "herdr/install.sh"]
+
+# The overlay is launched by herdr/open.sh, which passes the invoking pane along as
+# HERDR_DEEPL_TARGET so the prompt lands where the keybinding was pressed.
+[[panes]]
+id = "overlay"
+title = "deepl-prompt"
+placement = "overlay"
+command = ["sh", "-c", "exec \"$HERDR_PLUGIN_ROOT/bin/herdr-deepl-prompt\" $HERDR_DEEPL_ARGS"]
+
+[[actions]]
+id = "open"
+title = "deepl-prompt: write a prompt"
+contexts = ["pane"]
+command = ["bash", "herdr/open.sh"]
