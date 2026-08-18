@@ -181,3 +181,28 @@ func TestAnEnormousResponseIsNotReadWithoutLimit(t *testing.T) {
 		t.Error("Translate accepted an unbounded response, want it cut off")
 	}
 }
+
+func TestARedirectToPlainHttpIsRefusedSoTheKeyStays(t *testing.T) {
+	t.Parallel()
+
+	var plainReached bool
+	plain := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		plainReached = r.Header.Get("Authorization") != ""
+	}))
+	t.Cleanup(plain.Close)
+
+	redirecting := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, plain.URL, http.StatusTemporaryRedirect)
+	}))
+	t.Cleanup(redirecting.Close)
+
+	_, err := deepl.New("key-123", deepl.WithEndpoint(redirecting.URL), deepl.WithSecureOnly()).
+		Translate(context.Background(), "Bitte behebe es")
+
+	if err == nil {
+		t.Error("Translate followed a redirect away from https, want it refused")
+	}
+	if plainReached {
+		t.Error("the key was sent to the redirect target")
+	}
+}

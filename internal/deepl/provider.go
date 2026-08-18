@@ -21,7 +21,7 @@ func (Provider) New(options translation.Options) (translation.Translator, error)
 		return nil, err
 	}
 
-	clientOptions := []Option{}
+	clientOptions := []Option{WithSecureOnly()}
 	if options.TargetLanguage != "" {
 		clientOptions = append(clientOptions, WithTargetLanguage(options.TargetLanguage))
 	}

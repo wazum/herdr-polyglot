@@ -49,6 +49,20 @@ func WithHTTPClient(httpClient *http.Client) Option {
 	return func(c *Client) { c.httpClient = httpClient }
 }
 
+// WithSecureOnly refuses a redirect that would carry the key off https. Go keeps
+// the Authorization header when a host redirects to itself, downgrade included.
+func WithSecureOnly() Option {
+	return func(c *Client) {
+		c.httpClient.CheckRedirect = func(request *http.Request, _ []*http.Request) error {
+			if request.URL.Scheme != "https" {
+				return fmt.Errorf("refusing a redirect to %s: the API key travels with it",
+					request.URL.Scheme)
+			}
+			return nil
+		}
+	}
+}
+
 func New(apiKey string, options ...Option) *Client {
 	client := &Client{
 		httpClient:     &http.Client{Timeout: defaultTimeout},
