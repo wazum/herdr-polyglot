@@ -609,3 +609,152 @@ func TestEscapeKeepsAWrittenDraftOpen(t *testing.T) {
 	overlayUnderTest.Type("q")
 	overlayUnderTest.WaitFinished(t, teatest.WithFinalTimeout(2*time.Second))
 }
+
+type fakeDrafts struct {
+	kept      string
+	saved     []string
+	cleared   int
+	saveError error
+}
+
+func (f *fakeDrafts) Load() string { return f.kept }
+
+func (f *fakeDrafts) Save(text string) error {
+	if f.saveError != nil {
+		return f.saveError
+	}
+	f.saved = append(f.saved, text)
+	return nil
+}
+
+func (f *fakeDrafts) Clear() error {
+	f.cleared++
+	return nil
+}
+
+func TestAKeptDraftIsThereAgainWhenTheOverlayOpens(t *testing.T) {
+	t.Parallel()
+	drafts := &fakeDrafts{kept: "Bitte behebe den Test"}
+
+	overlayUnderTest := newOverlayWith(t, stubTranslator{english: english}, &recordingTarget{},
+		overlay.Options{Service: "deepl", Language: "EN-US", Drafts: drafts})
+
+	teatest.WaitFor(t, overlayUnderTest.Output(), func(out []byte) bool {
+		return bytes.Contains(out, []byte("Bitte behebe den Test"))
+	}, teatest.WithDuration(2*time.Second))
+
+	// Typing continues after the kept text rather than in front of it.
+	overlayUnderTest.Type(" gruendlich")
+	teatest.WaitFor(t, overlayUnderTest.Output(), func(out []byte) bool {
+		return bytes.Contains(out, []byte("Test gruendlich"))
+	}, teatest.WithDuration(2*time.Second))
+
+	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyCtrlC})
+	overlayUnderTest.WaitFinished(t, teatest.WithFinalTimeout(2*time.Second))
+}
+
+func TestClosingKeepsTheDraftForNextTime(t *testing.T) {
+	t.Parallel()
+	drafts := &fakeDrafts{}
+
+	overlayUnderTest := newOverlayWith(t, stubTranslator{english: english}, &recordingTarget{},
+		overlay.Options{Service: "deepl", Language: "EN-US", Vim: true, Drafts: drafts})
+	overlayUnderTest.Type("Bitte behebe den Test")
+	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyEsc})
+	overlayUnderTest.Type("q")
+	overlayUnderTest.WaitFinished(t, teatest.WithFinalTimeout(2*time.Second))
+
+	if len(drafts.saved) != 1 || drafts.saved[0] != "Bitte behebe den Test" {
+		t.Errorf("the store was given %v, want the draft kept once", drafts.saved)
+	}
+}
+
+func TestASentDraftIsNotKept(t *testing.T) {
+	t.Parallel()
+	drafts := &fakeDrafts{}
+	target := &recordingTarget{}
+
+	overlayUnderTest := newOverlayWith(t, stubTranslator{english: english}, target,
+		overlay.Options{Service: "deepl", Language: "EN-US", Drafts: drafts})
+	overlayUnderTest.Type(draft)
+	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyCtrlD})
+	overlayUnderTest.WaitFinished(t, teatest.WithFinalTimeout(2*time.Second))
+
+	if len(target.inserted) != 1 {
+		t.Fatalf("target received %v, want the prompt delivered", target.inserted)
+	}
+	if drafts.cleared != 1 {
+		t.Errorf("the store was cleared %d times, want the sent draft forgotten", drafts.cleared)
+	}
+	if len(drafts.saved) != 0 {
+		t.Errorf("the store was given %v, want a sent draft not kept", drafts.saved)
+	}
+}
+
+func TestADraftThatCannotBeKeptIsNotSilentlyLost(t *testing.T) {
+	t.Parallel()
+	drafts := &fakeDrafts{saveError: errors.New("disk full")}
+
+	overlayUnderTest := newOverlayWith(t, stubTranslator{english: english}, &recordingTarget{},
+		overlay.Options{Service: "deepl", Language: "EN-US", Vim: true, Drafts: drafts})
+	overlayUnderTest.Type("Bitte behebe den Test")
+	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyEsc})
+	overlayUnderTest.Type("q")
+
+	teatest.WaitFor(t, overlayUnderTest.Output(), func(out []byte) bool {
+		return bytes.Contains(out, []byte("disk full"))
+	}, teatest.WithDuration(2*time.Second))
+
+	// ctrl+c is the way out when even keeping the draft fails.
+	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyCtrlC})
+	overlayUnderTest.WaitFinished(t, teatest.WithFinalTimeout(2*time.Second))
+}
+
+func TestARestoredDraftSaysThatItWasResumed(t *testing.T) {
+	t.Parallel()
+	drafts := &fakeDrafts{kept: "Bitte behebe den Test"}
+
+	overlayUnderTest := newOverlayWith(t, stubTranslator{english: english}, &recordingTarget{},
+		overlay.Options{Service: "deepl", Language: "EN-US", Drafts: drafts})
+
+	// Text that reappears without explanation is a surprise, so say where it
+	// came from until the author touches it.
+	teatest.WaitFor(t, overlayUnderTest.Output(), func(out []byte) bool {
+		return bytes.Contains(out, []byte("resumed"))
+	}, teatest.WithDuration(2*time.Second))
+
+	overlayUnderTest.Type("!")
+	teatest.WaitFor(t, overlayUnderTest.Output(), func(out []byte) bool {
+		tail := out[max(0, len(out)-400):]
+		return bytes.Contains(tail, []byte("Test!")) && !bytes.Contains(tail, []byte("resumed"))
+	}, teatest.WithDuration(2*time.Second))
+
+	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyCtrlC})
+	overlayUnderTest.WaitFinished(t, teatest.WithFinalTimeout(2*time.Second))
+}
+
+func TestADraftCanBeThrownAwayWithOneKey(t *testing.T) {
+	t.Parallel()
+	drafts := &fakeDrafts{kept: "Ein alter Entwurf"}
+
+	overlayUnderTest := newOverlayWith(t, stubTranslator{english: english}, &recordingTarget{},
+		overlay.Options{Service: "deepl", Language: "EN-US", Drafts: drafts})
+	teatest.WaitFor(t, overlayUnderTest.Output(), func(out []byte) bool {
+		return bytes.Contains(out, []byte("Ein alter Entwurf"))
+	}, teatest.WithDuration(2*time.Second))
+
+	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyCtrlU})
+	overlayUnderTest.Type("Etwas Neues")
+
+	teatest.WaitFor(t, overlayUnderTest.Output(), func(out []byte) bool {
+		tail := out[max(0, len(out)-500):]
+		return bytes.Contains(tail, []byte("Etwas Neues")) && !bytes.Contains(tail, []byte("alter Entwurf"))
+	}, teatest.WithDuration(2*time.Second))
+
+	if drafts.cleared != 1 {
+		t.Errorf("the store was cleared %d times, want the thrown-away draft forgotten", drafts.cleared)
+	}
+
+	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyCtrlC})
+	overlayUnderTest.WaitFinished(t, teatest.WithFinalTimeout(2*time.Second))
+}

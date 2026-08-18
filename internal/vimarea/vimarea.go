@@ -115,6 +115,23 @@ func (m *Model) SetValue(text string) {
 	m.setCol(0)
 }
 
+// Resume seeds a draft that was written earlier and leaves the cursor after it,
+// ready to carry on.
+func (m *Model) Resume(text string) {
+	m.area.SetValue(text)
+	m.toRow(m.area.LineCount() - 1)
+	m.area.CursorEnd()
+	m.desiredCol = m.Column()
+}
+
+// Clear empties the draft, keeping what was there on the undo stack.
+func (m *Model) Clear() {
+	m.remember()
+	m.area.SetValue("")
+	m.mode = Insert
+	m.insertRemembered = true
+}
+
 func (m *Model) SetWidth(width int)   { m.area.SetWidth(width) }
 func (m *Model) SetHeight(height int) { m.area.SetHeight(height) }
 func (m *Model) Focus() tea.Cmd       { return m.area.Focus() }

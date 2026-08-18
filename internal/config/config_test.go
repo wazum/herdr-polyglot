@@ -209,3 +209,41 @@ func TestLivePreviewIsOffUnlessAskedFor(t *testing.T) {
 		t.Error("Live is false, want it enabled by HERDR_POLYGLOT_LIVE=1")
 	}
 }
+
+func TestKeepingDraftsIsOnUnlessTurnedOff(t *testing.T) {
+	t.Parallel()
+
+	settings, err := config.Load(envFrom(map[string]string{"HERDR_POLYGLOT_TARGET": "w1:p3"}))
+	if err != nil {
+		t.Fatalf("Load returned unexpected error: %v", err)
+	}
+	if !settings.KeepDraft {
+		t.Error("KeepDraft is false, want an unfinished prompt kept by default")
+	}
+
+	settings, err = config.Load(envFrom(map[string]string{
+		"HERDR_POLYGLOT_TARGET":     "w1:p3",
+		"HERDR_POLYGLOT_KEEP_DRAFT": "0",
+	}))
+	if err != nil {
+		t.Fatalf("Load returned unexpected error: %v", err)
+	}
+	if settings.KeepDraft {
+		t.Error("KeepDraft is true, want it turned off by HERDR_POLYGLOT_KEEP_DRAFT=0")
+	}
+}
+
+func TestTheStateDirectoryIsPassedAlongForKeepingDrafts(t *testing.T) {
+	t.Parallel()
+
+	settings, err := config.Load(envFrom(map[string]string{
+		"HERDR_POLYGLOT_TARGET":  "w1:p3",
+		"HERDR_PLUGIN_STATE_DIR": "/tmp/state",
+	}))
+	if err != nil {
+		t.Fatalf("Load returned unexpected error: %v", err)
+	}
+	if settings.StateDir != "/tmp/state" {
+		t.Errorf("StateDir is %q, want the directory herdr set aside", settings.StateDir)
+	}
+}

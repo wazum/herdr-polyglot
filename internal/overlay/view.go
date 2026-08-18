@@ -81,9 +81,11 @@ func (m Model) header(line int) string {
 	if m.options.Live {
 		destination = "live · " + destination
 	}
-	badge := badgeStyle.Render(strings.Join(
-		[]string{m.options.Service, "→", m.options.Language, "·", destination}, " ",
-	))
+	parts := []string{m.options.Service, "→", m.options.Language, "·", destination}
+	if m.resumed {
+		parts = append(parts, "·", "resumed")
+	}
+	badge := badgeStyle.Render(strings.Join(parts, " "))
 
 	return spread(titleStyle.Render("✳ polyglot"), badge, line)
 }
@@ -111,6 +113,9 @@ func (m Model) keyHints() string {
 		shown = [][2]string{{"ctrl+d", "send"}, {"i", "insert"}, {"q", "close"}}
 	case m.draft.Modal():
 		shown = [][2]string{{"ctrl+d", "send"}, {"esc", "normal"}, {"enter", "newline"}}
+	}
+	if m.resumed {
+		shown = append(shown, [2]string{"ctrl+u", "discard"})
 	}
 
 	hints := make([]string, 0, len(shown))

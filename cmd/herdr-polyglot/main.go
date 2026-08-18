@@ -12,6 +12,7 @@ import (
 
 	"github.com/wazum/herdr-polyglot/internal/config"
 	"github.com/wazum/herdr-polyglot/internal/deepl"
+	"github.com/wazum/herdr-polyglot/internal/draft"
 	"github.com/wazum/herdr-polyglot/internal/herdr"
 	"github.com/wazum/herdr-polyglot/internal/overlay"
 	"github.com/wazum/herdr-polyglot/internal/promptflow"
@@ -75,6 +76,7 @@ func run(ctx context.Context) error {
 			Review:   !settings.Submit,
 			Vim:      settings.Vim,
 			Live:     settings.Live,
+			Drafts:   drafts(settings.KeepDraft, settings.StateDir, settings.Target),
 		}),
 		tea.WithContext(ctx),
 		tea.WithAltScreen(),
@@ -83,6 +85,15 @@ func run(ctx context.Context) error {
 		return fmt.Errorf("running overlay: %w", err)
 	}
 	return nil
+}
+
+// drafts keeps an unfinished prompt for this pane, unless the author would
+// rather start from an empty box every time.
+func drafts(keep bool, stateDir, target string) overlay.Drafts {
+	if !keep || stateDir == "" {
+		return nil
+	}
+	return draft.NewStore(stateDir).For(target)
 }
 
 func target(binary, pane string, submit bool) promptflow.Target {

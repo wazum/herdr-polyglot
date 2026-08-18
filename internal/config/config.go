@@ -22,6 +22,8 @@ const (
 	submitVar    = "HERDR_POLYGLOT_SUBMIT"
 	vimVar       = "HERDR_POLYGLOT_VIM"
 	liveVar      = "HERDR_POLYGLOT_LIVE"
+	keepDraftVar = "HERDR_POLYGLOT_KEEP_DRAFT"
+	stateDirVar  = "HERDR_PLUGIN_STATE_DIR"
 	configDirVar = "HERDR_PLUGIN_CONFIG_DIR"
 	binaryVar    = "HERDR_BIN_PATH"
 
@@ -33,13 +35,16 @@ const (
 type Settings struct {
 	Target string
 	// Provider names the translation service; empty means the default.
-	Provider    string
-	Options     translation.Options
-	ConfigFile  string
+	Provider   string
+	Options    translation.Options
+	ConfigFile string
+	// StateDir is where an unfinished prompt is kept between sessions.
+	StateDir    string
 	HerdrBinary string
 	Submit      bool
 	Vim         bool
 	Live        bool
+	KeepDraft   bool
 }
 
 // The environment wins over the .env file, so a one-off invocation can
@@ -62,10 +67,12 @@ func Load(getenv func(string) string) (Settings, error) {
 		Target:      lookup(targetVar),
 		Provider:    provider,
 		ConfigFile:  configFile,
+		StateDir:    getenv(stateDirVar),
 		HerdrBinary: orDefault(lookup(binaryVar), defaultBinary),
 		Submit:      !isDisabled(lookup(submitVar)),
 		Vim:         isEnabled(lookup(vimVar)),
 		Live:        isEnabled(lookup(liveVar)),
+		KeepDraft:   !isDisabled(lookup(keepDraftVar)),
 		Options: translation.Options{
 			APIKey:         orDefault(lookup(scopedKeyVar(provider)), lookup(apiKeyVar)),
 			TargetLanguage: orDefault(lookup(languageVar), defaultLanguage),

@@ -32,6 +32,16 @@ type Options struct {
 	// Live translates the draft while it is written instead of only on send.
 	Live     bool
 	Debounce time.Duration
+	// Drafts keeps an unfinished prompt between sessions. Without one the draft
+	// simply goes when the popup closes.
+	Drafts Drafts
+}
+
+// Drafts is the pane's own unfinished prompt.
+type Drafts interface {
+	Load() string
+	Save(text string) error
+	Clear() error
 }
 
 type stage int
@@ -92,6 +102,9 @@ type Model struct {
 	// cancelPreview stops the translation started for an older draft. It is a
 	// closure, so every copy of the model cancels the same request.
 	cancelPreview context.CancelFunc
+	// resumed says the draft on screen was written in an earlier session, which
+	// is worth saying until the author takes it over.
+	resumed bool
 }
 
 func New(ctx context.Context, prompter Prompter, options Options) Model {
@@ -118,6 +131,12 @@ func New(ctx context.Context, prompter Prompter, options Options) Model {
 		spinner:  working,
 	}
 	model.resize(maxContentWidth)
+	if options.Drafts != nil {
+		if kept := options.Drafts.Load(); kept != "" {
+			model.draft.Resume(kept)
+			model.resumed = true
+		}
+	}
 	return model
 }
 
@@ -151,6 +170,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleKey(msg)
 
 	case promptSentMsg:
+		m.forgetDraft()
 		return m, tea.Quit
 
 	case blankDraftMsg:
@@ -203,16 +223,25 @@ func (m Model) handleKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, tea.Quit
 
 	case key.Type == tea.KeyEsc && !m.draft.Modal():
-		return m, tea.Quit
+		return m.close()
 
 	// In normal mode there is nothing left for escape to do, so an empty draft
 	// closes. A written one stays: escape must not throw away work.
 	case key.Type == tea.KeyEsc && m.draft.Mode() == vimarea.Normal && m.draftIsBlank():
-		return m, tea.Quit
+		return m.close()
 
 	// q closes only from normal mode, where it cannot be part of a draft.
 	case key.String() == "q" && m.draft.Mode() == vimarea.Normal:
-		return m, tea.Quit
+		return m.close()
+
+	// ctrl+u clears the whole draft, as it clears a line in a shell. The text
+	// area would otherwise use it to delete back to the line start.
+	case key.Type == tea.KeyCtrlU:
+		m.draft.Clear()
+		m.forgetDraft()
+		m.resumed = false
+		m.preview, m.previewOf, m.previewError = "", "", nil
+		return m, nil
 
 	// Sending is deliberate; a bare enter belongs to the draft.
 	case key.Type == tea.KeyCtrlD, key.Type == tea.KeyEnter && key.Alt:
@@ -227,6 +256,11 @@ func (m Model) handleKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	var cmd tea.Cmd
 	m.draft, cmd = m.draft.Update(key)
+
+	if m.draft.Value() != before {
+		// Once it has been edited it is this session's draft, not an old one.
+		m.resumed = false
+	}
 
 	if after := m.draft.Value(); m.options.Live && after != before {
 		m.revision++
@@ -296,6 +330,25 @@ func (m Model) startSubmit() (tea.Model, tea.Cmd) {
 			return promptSentMsg{}
 		}
 	})
+}
+
+// close keeps the draft for next time. Failing to keep it is worth saying,
+// because closing anyway would throw the writing away; ctrl+c is the way out.
+func (m Model) close() (tea.Model, tea.Cmd) {
+	if m.options.Drafts == nil {
+		return m, tea.Quit
+	}
+	if err := m.options.Drafts.Save(m.draft.Value()); err != nil {
+		m.failure = err
+		return m, nil
+	}
+	return m, tea.Quit
+}
+
+func (m Model) forgetDraft() {
+	if m.options.Drafts != nil {
+		_ = m.options.Drafts.Clear()
+	}
 }
 
 func (m Model) draftIsBlank() bool {
