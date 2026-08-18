@@ -17,8 +17,8 @@ windows here, so nothing that acts on them exists.
 | Counts | `3j`, `2dd`, `3x` and so on |
 | Leaving | `alt+enter` sends, `esc` closes from normal mode, `ctrl+c` always closes |
 
-Escape is the whole way out: once to leave insert mode, once to close. Nothing is
-lost by closing, because the draft is kept for next time.
+Escape is the whole way out: once to leave insert mode, once to close. Nothing
+is lost by closing, because the draft is kept for next time.
 
 Without vim bindings the box is an ordinary text area and `esc` closes it.
 
