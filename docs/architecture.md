@@ -27,6 +27,14 @@ back to the same pane through the *herdr* CLI: `agent prompt` to send it, or
 service, wires the flow to its targets and starts the program. Nothing below it
 knows which service is in use or how the popup was opened.
 
+`promptflow` owns the ports it needs — `Translator`, `Target`, `UsageReporter` —
+and imports no adapter package, not even `translation`. Where the two
+vocabularies have to meet, they meet in the composition root: it is the only
+place that knows both a `translation.Usage` and a `promptflow.Usage` exist, and
+it adapts one to the other. `promptflow.New` assumes the dependencies it is
+handed are real; the composition root is its only caller, and a nil would fail
+on the first keystroke.
+
 Previews and sends use different translators. A send is one shot and goes to the
 service directly; a preview goes through the sentence cache, because writing
 means translating the same draft again and again. Both are set up whether live
@@ -60,6 +68,13 @@ type ContextualTranslator interface {
 	TranslateWithContext(ctx context.Context, text, preceding string) (string, error)
 }
 ```
+
+`translation.Options` is a superset — `APIKey`, `TargetLanguage`, `Endpoint` —
+and each service takes what applies. That holds while services want the same
+three things. The moment one needs something private to it, a project id or a
+region, that parsing belongs in the composition root rather than in a struct
+every service has to look at: adding fields there makes every provider carry
+what one of them needed.
 
 Add a package that implements `Provider`, register it in `services()` in
 `cmd/herdr-polyglot/main.go`, and it becomes selectable through
