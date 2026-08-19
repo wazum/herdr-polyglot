@@ -71,6 +71,50 @@ func TestAServiceThatCannotBeBuiltSaysSoAndRefusesToTranslate(t *testing.T) {
 	}
 }
 
+// A command needs no key, so setting one is enough to choose it: there is nothing
+// else it could mean.
+func TestACommandOnItsOwnPicksTheLocalService(t *testing.T) {
+	chosen := chooseService(&config.Settings{
+		Options: translation.Options{Command: "sed 's/behebe/fix/'", TargetLanguage: "EN-US"},
+	})
+
+	if chosen.name != "cmd" {
+		t.Errorf("with a command the service is %q, want cmd", chosen.name)
+	}
+	if !chosen.translates {
+		t.Error("with a command the popup does not claim to translate")
+	}
+	if chosen.trouble != nil {
+		t.Errorf("with a command there is trouble to report: %v", chosen.trouble)
+	}
+
+	translated, err := chosen.translator.Translate(context.Background(), "Bitte behebe es")
+	if err != nil {
+		t.Fatalf("Translate returned unexpected error: %v", err)
+	}
+	if translated != "Bitte fix es" {
+		t.Errorf("Translate returned %q, want what the command answered", translated)
+	}
+}
+
+// A key and a command together say nothing about which was meant, and guessing
+// wrong would send a draft to a service the person thought they had left behind.
+func TestAKeyAndACommandTogetherAreRefusedRatherThanGuessedAt(t *testing.T) {
+	chosen := chooseService(&config.Settings{
+		Options: translation.Options{APIKey: "key-123", Command: "cat"},
+	})
+
+	if chosen.trouble == nil {
+		t.Fatal("a key and a command together report no trouble")
+	}
+	if !strings.Contains(chosen.trouble.Error(), "HERDR_POLYGLOT_PROVIDER") {
+		t.Errorf("the trouble is %v, want it to say which setting decides", chosen.trouble)
+	}
+	if _, err := chosen.translator.Translate(context.Background(), "Bitte behebe es"); err == nil {
+		t.Error("something was translated while it is unclear by what")
+	}
+}
+
 func TestAnExplicitServiceIsUsedAsAsked(t *testing.T) {
 	chosen := chooseService(&config.Settings{Provider: "dry-run"})
 

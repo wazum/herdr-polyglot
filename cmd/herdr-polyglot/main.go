@@ -12,6 +12,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/wazum/herdr-polyglot/internal/command"
 	"github.com/wazum/herdr-polyglot/internal/config"
 	"github.com/wazum/herdr-polyglot/internal/deepl"
 	"github.com/wazum/herdr-polyglot/internal/draft"
@@ -51,6 +52,7 @@ func services() *translation.Registry {
 	return translation.NewRegistry(
 		deepl.Provider{},
 		google.Provider{},
+		command.Provider{},
 		translation.DryRunProvider{},
 		translation.OffProvider{},
 	)

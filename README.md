@@ -101,7 +101,8 @@ off (`0`, `false`, `no`, `off`) is refused rather than guessed at.
 | Setting | Default | Meaning |
 | --- | --- | --- |
 | `HERDR_POLYGLOT_API_KEY` | none | Credentials for the translation service |
-| `HERDR_POLYGLOT_PROVIDER` | `deepl` with a key, else `off` | Which service: `deepl`, `google`, `dry-run` or `off` |
+| `HERDR_POLYGLOT_PROVIDER` | picked from what is configured | Which service: `deepl`, `google`, `cmd`, `dry-run` or `off` |
+| `HERDR_POLYGLOT_COMMAND` | none | A program that translates, for [local translation](docs/local-translation.md) |
 | `HERDR_POLYGLOT_LANGUAGE` | `EN-US` | Target language |
 | `HERDR_POLYGLOT_ENDPOINT` | the service's own | Override the service endpoint |
 | `HERDR_POLYGLOT_SUBMIT` | `1` | `0` types the prompt without sending it |
@@ -113,13 +114,13 @@ off (`0`, `false`, `no`, `off`) is refused rather than guessed at.
 | `HERDR_POLYGLOT_PULSE` | `1` | `0` stops the live circle from breathing |
 | `HERDR_POLYGLOT_LOGO` | `1` | `0` leaves the empty draft box unsigned |
 
-`off` is the plain prompt box, which is what you get with no key. Asking for a
-service you have no key for is a different thing: the popup says which key is
-missing and where it belongs, and delivers nothing, so an untranslated draft never
-reaches the agent by accident. With `HERDR_POLYGLOT_PROVIDER=dry-run` the overlay
-marks the draft instead of translating it, so you can check the wiring. To keep keys for
-several services side by side, scope them by name:
-`HERDR_POLYGLOT_DEEPL_API_KEY`, `HERDR_POLYGLOT_GOOGLE_API_KEY`.
+The service is chosen by what you configured: a key means *DeepL*, a command means
+that command, neither means `off` — the plain prompt box. Both at once is refused
+rather than guessed at, and then `HERDR_POLYGLOT_PROVIDER` decides. Asking for a
+service that cannot be built is a case of its own: the popup says what is missing
+and where it belongs, and delivers nothing, so an untranslated draft never reaches
+the agent by accident. To keep keys for several services side by side, scope them by
+name: `HERDR_POLYGLOT_DEEPL_API_KEY`, `HERDR_POLYGLOT_GOOGLE_API_KEY`.
 
 *Google* takes the same language setting and needs the Cloud Translation API
 enabled for the key. It reports no monthly count, so the header shows none with
@@ -142,6 +143,10 @@ as it stands, so writing costs little more than sending —
 [how that works](docs/live-translation.md). Live translation starts off for a
 draft that came back from an earlier session and for text you paste in, since
 neither is something you asked to have translated; `ctrl+l` turns it on.
+
+**Translation on your own machine.** `HERDR_POLYGLOT_COMMAND` points the plugin at
+a program instead of a service, so a draft need not leave the machine at all —
+[how to set that up](docs/local-translation.md).
 
 **Code is not translated.** A translation service rewrites code as if it were
 prose: it renames identifiers, translates comments and string literals, and
@@ -167,7 +172,8 @@ Nothing else leaves. The API key goes to the translation service only — never 
 the agent, the *herdr* socket, a command line or a child process. Translated
 text is stripped of control characters before it is typed into a pane, so
 neither a line break nor an escape sequence can reach the agent's terminal.
-`HERDR_POLYGLOT_PROVIDER=dry-run` keeps a draft off the network entirely.
+A [translator on the machine](docs/local-translation.md) keeps a draft off the
+network entirely.
 
 ## Development
 

@@ -20,6 +20,9 @@ type Options struct {
 	APIKey         string
 	TargetLanguage string
 	Endpoint       string
+	// Command is a shell command line that translates what it is given on its
+	// input, for a service that is a program on the machine rather than a host.
+	Command string
 }
 
 type Provider interface {

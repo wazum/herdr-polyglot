@@ -20,6 +20,7 @@ const (
 	apiKeyVar    = "HERDR_POLYGLOT_API_KEY"
 	languageVar  = "HERDR_POLYGLOT_LANGUAGE"
 	endpointVar  = "HERDR_POLYGLOT_ENDPOINT"
+	commandVar   = "HERDR_POLYGLOT_COMMAND"
 	submitVar    = "HERDR_POLYGLOT_SUBMIT"
 	vimVar       = "HERDR_POLYGLOT_VIM"
 	liveVar      = "HERDR_POLYGLOT_LIVE"
@@ -100,6 +101,7 @@ func Load(getenv func(string) string) (Settings, error) {
 			APIKey:         orDefault(lookup(scopedKeyVar(provider)), lookup(apiKeyVar)),
 			TargetLanguage: orDefault(lookup(languageVar), defaultLanguage),
 			Endpoint:       lookup(endpointVar),
+			Command:        lookup(commandVar),
 		},
 	}
 

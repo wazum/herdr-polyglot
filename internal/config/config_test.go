@@ -83,6 +83,24 @@ func TestLoadHonoursTheChosenServiceAndItsOptions(t *testing.T) {
 	}
 }
 
+// A command line is a setting like any other, and it keeps its quoting: it is a
+// shell that runs it, not the plugin.
+func TestLoadKeepsTheTranslationCommandAsItWasWritten(t *testing.T) {
+	t.Parallel()
+	written := `translateLocally -m de-en-base | sed 's/  */ /g'`
+
+	settings, err := config.Load(envFrom(map[string]string{
+		"HERDR_POLYGLOT_TARGET":  "w1:p3",
+		"HERDR_POLYGLOT_COMMAND": written,
+	}))
+	if err != nil {
+		t.Fatalf("Load returned unexpected error: %v", err)
+	}
+	if settings.Options.Command != written {
+		t.Errorf("Command is %q, want it as it was written", settings.Options.Command)
+	}
+}
+
 func TestLoadReadsSettingsFromTheDotEnvInThePluginConfigDirectory(t *testing.T) {
 	t.Parallel()
 	configDir := configDirContaining(t, "# credentials\nHERDR_POLYGLOT_API_KEY=key-from-file\nHERDR_POLYGLOT_LANGUAGE=\"EN-GB\"\n")

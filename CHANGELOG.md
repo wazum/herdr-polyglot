@@ -9,6 +9,11 @@ the versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- A translation service can be a program on your own machine:
+  `HERDR_POLYGLOT_COMMAND` names a command line, the draft is written to its input
+  and its answer is the translation. No key, no account, nothing over the network —
+  [translateLocally](https://translatelocally.com) is quick enough for live
+  translation. See [docs/local-translation.md](docs/local-translation.md).
 - The plugin works with no API key at all: the popup opens as a prompt box that
   hands what you write to the agent, with every key, the vim bindings and the
   resumed draft. Install it, bind it, use it — a key adds the translation later.
