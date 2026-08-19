@@ -16,7 +16,9 @@ func (m Model) View() string {
 		return m.readingView()
 	}
 
-	draft := m.styles.draftBox.Width(m.width).Render(m.draftBody())
+	first, visible, total := m.draftScroll()
+	draft := m.labelled(
+		m.box(true).Render(m.draftBody()), howFarThrough(first, visible, total), true)
 	line := lipgloss.Width(draft)
 
 	parts := []string{m.header(line), draft}
@@ -41,8 +43,9 @@ func (m Model) readingView() string {
 	}
 	shown := style.Render(rowsFrom(text, m.contentWidth(), m.readingFrom, rows))
 
-	box := m.styles.englishBox.Width(m.width).Height(rows).
-		Render(m.scrolled(shown, m.readingFrom, rows, total))
+	box := m.labelled(
+		m.box(true).Height(rows).Render(m.scrolled(shown, m.readingFrom, rows, total)),
+		howFarThrough(m.readingFrom, rows, total), true)
 	line := lipgloss.Width(box)
 
 	return strings.Join([]string{m.header(line), box, m.readingFooter(line - 1)}, "\n")
@@ -71,7 +74,7 @@ func (m Model) englishPane() string {
 	if m.translationIsCut() {
 		shown = cutTo(shown, m.contentWidth()-2) + " …"
 	}
-	return m.styles.englishBox.Width(m.width).Render(style.Render(shown))
+	return m.box(false).Height(rows).Render(style.Render(shown))
 }
 
 func (m Model) translationIsCut() bool {
@@ -262,18 +265,7 @@ func (m Model) readingFooter(inner int) string {
 		m.styles.key.Render("alt+enter") + m.styles.hint.Render(" "+m.destination()),
 		m.styles.key.Render("esc") + m.styles.hint.Render(" back"),
 	}
-	return spread(" "+strings.Join(hints, m.styles.hint.Render(" · ")),
-		m.styles.badge.Render(m.howFar()), inner)
-}
-
-// howFar says where in the translation the reader is, since the bar shows it only
-// roughly.
-func (m Model) howFar() string {
-	rows, total := m.readingRows(), m.readingTotal()
-	if total <= rows {
-		return ""
-	}
-	return fmt.Sprintf("%d%%", min((m.readingFrom+rows)*100/total, 100))
+	return spread(" "+strings.Join(hints, m.styles.hint.Render(" · ")), "", inner)
 }
 
 // rowsFrom wraps text and keeps the rows from one onwards.

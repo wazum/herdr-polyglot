@@ -147,3 +147,83 @@ func lastWord(text string) string {
 func plain(view string) string {
 	return ansi.Strip(view)
 }
+
+func TestTheActivePanelIsTheOneWithTheAccentBorder(t *testing.T) {
+	pane := tea.WindowSizeMsg{Width: 87, Height: 15}
+	english := strings.Repeat("A sentence in the translation. ", 20)
+
+	writing := laidOut(t, pane, "Bitte behebe den Test.", english)
+	draftBorder, translationBorder := borderColours(writing)
+	if draftBorder == translationBorder {
+		t.Errorf("both panels are drawn the same while writing: %q and %q",
+			draftBorder, translationBorder)
+	}
+	if !strings.Contains(draftBorder, accentSequence) {
+		t.Errorf("while writing the draft is not the accented panel: %q", draftBorder)
+	}
+
+	model := readerOf(t, pane, "Bitte behebe den Test.", english)
+	model, _ = model.Update(tea.KeyMsg{Type: tea.KeyTab})
+	_, reading := borderColours(strings.Split(model.View(), "\n"))
+	if reading != "" && !strings.Contains(reading, accentSequence) {
+		t.Errorf("while reading the translation is not the accented panel: %q", reading)
+	}
+}
+
+func TestHowFarThroughItYouAreIsOnTheBorder(t *testing.T) {
+	pane := tea.WindowSizeMsg{Width: 87, Height: 15}
+	model := readerOf(t, pane, "Bitte behebe den Test.",
+		strings.Repeat("A sentence in the translation. ", 40))
+	model, _ = model.Update(tea.KeyMsg{Type: tea.KeyTab})
+
+	lines := strings.Split(plain(model.View()), "\n")
+	bottom := ""
+	for _, line := range lines {
+		if strings.Contains(line, "╰") {
+			bottom = line
+		}
+	}
+	if !strings.Contains(bottom, "%") {
+		t.Errorf("the border does not say how far through it you are: %q", bottom)
+	}
+	if strings.Contains(lastLine(plain(model.View())), "%") {
+		t.Error("the footer still carries the percentage as well")
+	}
+}
+
+const accentSequence = "35m"
+
+// borderColours reads the escape sequence each box's top border is drawn with.
+func borderColours(lines []string) (draft, translation string) {
+	tops := []string{}
+	for _, line := range lines {
+		if strings.Contains(line, "╭") {
+			tops = append(tops, line[:min(len(line), 12)])
+		}
+	}
+	switch len(tops) {
+	case 0:
+		return "", ""
+	case 1:
+		return tops[0], ""
+	default:
+		return tops[0], tops[1]
+	}
+}
+
+func readerOf(t *testing.T, pane tea.WindowSizeMsg, draft, preview string) tea.Model {
+	t.Helper()
+	previous := lipgloss.ColorProfile()
+	lipgloss.SetColorProfile(termenv.ANSI)
+	t.Cleanup(func() { lipgloss.SetColorProfile(previous) })
+
+	target := &recordingTarget{}
+	flow := promptflow.New(stubTranslator{english: preview}, target, target)
+	var model tea.Model = overlay.New(context.Background(), flow, overlay.Options{
+		Service: "deepl", Language: "EN-US", Live: true,
+	})
+	model, _ = model.Update(pane)
+	model, _ = model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(draft)})
+	model, _ = model.Update(overlay.PreviewShown(draft, preview))
+	return model
+}

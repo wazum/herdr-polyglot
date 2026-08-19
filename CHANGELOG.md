@@ -14,8 +14,20 @@ the versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   and shows how far down it you are. Any letter, `tab` or `esc` goes back to the
   draft, so it cannot be got stuck in.
 
+### Added
+
+- The panel being written in or read is drawn with the accent border, the other in
+  the frame's grey, so it is clear which one has the keys.
+- How far through a panel you are is written into its bottom border rather than
+  the footer.
+
 ### Fixed
 
+- The scrollbar says where the view actually is. It was worked out from the cursor
+  on the assumption that the last row was on screen, so it claimed the top while
+  rows were hidden above.
+- A draft that comes back opens at its beginning, where it can be read, instead of
+  scrolled to its end.
 - The draft can be walked through when it holds more than it shows: the arrows
   move by row, and `gj`/`gk` do the same with vim bindings on, where `j`/`k` keep
   vim's meaning of a whole line.

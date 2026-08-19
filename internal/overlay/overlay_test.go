@@ -668,10 +668,11 @@ func TestAKeptDraftIsThereAgainWhenTheOverlayOpens(t *testing.T) {
 		return bytes.Contains(out, []byte("Bitte behebe den Test"))
 	}, teatest.WithDuration(2*time.Second))
 
-	// Typing continues after the kept text rather than in front of it.
-	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(" gründlich")})
+	// It opens at its beginning, so that is where the cursor is and where writing
+	// carries on; the end is a G or an arrow away.
+	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("Gründlich: ")})
 	teatest.WaitFor(t, overlayUnderTest.Output(), func(out []byte) bool {
-		return bytes.Contains(out, []byte("Test gründlich"))
+		return bytes.Contains(out, []byte("Gründlich: Bitte behebe den Test"))
 	}, teatest.WithDuration(2*time.Second))
 
 	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyCtrlC})
@@ -823,10 +824,13 @@ func TestARestoredDraftSaysThatItWasResumed(t *testing.T) {
 		return bytes.Contains(out, []byte("resumed draft"))
 	}, teatest.WithDuration(2*time.Second))
 
+	// A draft that came back opens at its beginning, so that is where writing
+	// carries on, and the header stops calling it resumed.
 	overlayUnderTest.Type("!")
 	teatest.WaitFor(t, overlayUnderTest.Output(), func(out []byte) bool {
 		tail := out[max(0, len(out)-400):]
-		return bytes.Contains(tail, []byte("Test!")) && !bytes.Contains(tail, []byte("resumed"))
+		return bytes.Contains(tail, []byte("!Bitte behebe den Test")) &&
+			!bytes.Contains(tail, []byte("resumed"))
 	}, teatest.WithDuration(2*time.Second))
 
 	overlayUnderTest.Send(tea.KeyMsg{Type: tea.KeyCtrlC})

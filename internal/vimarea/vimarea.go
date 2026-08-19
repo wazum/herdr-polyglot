@@ -115,13 +115,11 @@ func (m *Model) SetValue(text string) {
 	m.setCol(0)
 }
 
-// Resume seeds a draft that was written earlier and leaves the cursor after it,
-// ready to carry on.
+// Resume seeds a draft written earlier. It opens at the beginning: what came back
+// is read before it is carried on with.
 func (m *Model) Resume(text string) {
-	m.area.SetValue(text)
-	m.toRow(m.area.LineCount() - 1)
-	m.area.CursorEnd()
-	m.desiredCol = m.Column()
+	m.SetValue(text)
+	m.reveal()
 }
 
 // Clear empties the draft, keeping what was there on the undo stack.

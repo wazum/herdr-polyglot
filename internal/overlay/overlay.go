@@ -153,6 +153,9 @@ type Model struct {
 	reading bool
 	// readingFrom is the first row of the translation on screen while reading.
 	readingFrom int
+	// draftTop is the first row of the draft on screen, kept here because the text
+	// area does not say where its own view sits.
+	draftTop int
 	// resumed says the draft came from an earlier session, heldBackLive that this
 	// is why live translation is off.
 	resumed      bool
@@ -345,6 +348,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	var cmd tea.Cmd
 	m.draft, cmd = m.draft.Update(msg)
+	m.followCursor()
 	return m, cmd
 }
 
@@ -380,6 +384,7 @@ func (m *Model) resize(contentWidth int) {
 	// the area already wrapped and words drop onto lines nobody asked for.
 	m.draft.SetWidth(m.contentWidth())
 	m.draft.SetHeight(m.draftRows())
+	m.followCursor()
 }
 
 func deliveryFor(review bool) promptflow.Delivery {
@@ -479,6 +484,7 @@ func (m Model) handleKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case key.Type == tea.KeyCtrlU:
 		m.stage = composing
 		m.draft.Clear()
+		m.draftTop = 0
 		m.forgetDraft()
 		m.resumed = false
 		m.preview, m.previewOf, m.previewError = "", "", nil
@@ -503,6 +509,7 @@ func (m Model) handleKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	var cmd tea.Cmd
 	m.draft, cmd = m.draft.Update(key)
+	m.followCursor()
 
 	if m.draft.Value() != before && m.stage == confirming {
 		m.stage = composing

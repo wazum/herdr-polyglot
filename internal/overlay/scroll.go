@@ -64,24 +64,31 @@ func wrapped(text string, width int) string {
 	return ansi.Wrap(text, width, "")
 }
 
-// draftScroll works out where the view sits from the cursor, which the text area
-// always keeps on screen.
 func (m Model) draftScroll() (first, visible, total int) {
-	width := m.contentWidth()
-	visible = m.draftRows()
-	total = rowsOf(m.draft.Value(), width)
+	return m.draftTop, m.draftRows(), rowsOf(m.draft.Value(), m.contentWidth())
+}
 
-	lines := strings.Split(m.draft.Value(), "\n")
-	cursor := m.draft.RowOffset()
-	for index, line := range lines {
+// followCursor moves the view as little as it takes to keep the cursor on screen,
+// which is what the text area does with the viewport it keeps to itself.
+func (m *Model) followCursor() {
+	rows, total := m.draftRows(), rowsOf(m.draft.Value(), m.contentWidth())
+	cursor := m.cursorRow()
+
+	m.draftTop = min(m.draftTop, cursor)
+	m.draftTop = max(m.draftTop, cursor-rows+1)
+	m.draftTop = min(max(m.draftTop, 0), max(total-rows, 0))
+}
+
+func (m Model) cursorRow() int {
+	width := m.contentWidth()
+	row := m.draft.RowOffset()
+	for index, line := range strings.Split(m.draft.Value(), "\n") {
 		if index >= m.draft.Row() {
 			break
 		}
-		cursor += rowsOf(line, width)
+		row += rowsOf(line, width)
 	}
-
-	first = min(max(cursor-visible+1, 0), max(total-visible, 0))
-	return first, visible, total
+	return row
 }
 
 // contentWidth is what a box leaves for text beside its padding and the bar.

@@ -31,9 +31,9 @@ type styles struct {
 	off lipgloss.Style
 	// mark is the braille signature: the colour of the frame, since it is drawn
 	// furniture rather than something to read. Faint is too dim for braille dots.
-	mark       lipgloss.Style
-	draftBox   lipgloss.Style
-	englishBox lipgloss.Style
+	mark      lipgloss.Style
+	activeBox lipgloss.Style
+	idleBox   lipgloss.Style
 }
 
 func newStyles() styles {
@@ -55,14 +55,15 @@ func newStyles() styles {
 		off:         lipgloss.NewStyle().Strikethrough(true),
 		mark:        lipgloss.NewStyle().Foreground(frame),
 
-		draftBox: lipgloss.NewStyle().
+		// The accented border marks the panel being written in or read; the other
+		// one recedes into the frame's grey.
+		activeBox: lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(accent).
+			Padding(0, 1),
+		idleBox: lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(frame).
 			Padding(0, 1),
-		englishBox: lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(accent).
-			Padding(0, 1).
-			Height(englishRows - 2),
 	}
 }
