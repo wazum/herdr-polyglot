@@ -9,13 +9,14 @@ the versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- The plugin works with no API key at all: the popup opens as a prompt box that
+  hands what you write to the agent, with every key, the vim bindings and the
+  resumed draft. Install it, bind it, use it — a key adds the translation later.
+  `HERDR_POLYGLOT_PROVIDER=off` asks for that box with a key configured.
 - `tab` flips between writing and reading. Reading gives the translation the whole
   popup, scrolled with `↑ ↓ PageUp PageDown` — or `j k g G` with vim bindings on —
   and shows how far down it you are. Any letter, `tab` or `esc` goes back to the
   draft, so it cannot be got stuck in.
-
-### Added
-
 - `ctrl+t` translates the draft as it stands: the way to try again when a
   translation did not arrive, and the way to read the English at all with live
   translation off, without sending anything.
@@ -23,6 +24,11 @@ the versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   the frame's grey, so it is clear which one has the keys.
 - How far through a panel you are is written into its bottom border rather than
   the footer.
+
+### Changed
+
+- A missing or unusable key is said in the popup, naming the file it belongs in,
+  instead of the plugin refusing to open.
 
 ### Fixed
 

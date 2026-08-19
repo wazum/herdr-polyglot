@@ -106,6 +106,10 @@ func (m Model) header(line int) string {
 // The badge is joined from rendered pieces: the pulse carries its own colour,
 // which a single Render around everything would cut short.
 func (m Model) badge() string {
+	if !m.translating() {
+		return m.styles.badge.Render("no translation · " + m.whatHappens())
+	}
+
 	pieces := []string{m.styles.badge.Render(m.options.Service + " → " + m.options.Language)}
 
 	// A glyph and the word, always the same width, so switching live translation
@@ -217,17 +221,22 @@ func roomBeside(mode string, inner int) int {
 // the readme rather than the footer.
 func (m Model) keyHints(room int) string {
 	shown := [][2]string{{"alt+enter", m.destination()}}
-	// A translation that did not arrive is worth another try before anything else.
-	if m.previewError != nil {
-		shown = append(shown, [2]string{"ctrl+t", "try again"})
+
+	if m.translating() {
+		// A translation that did not arrive is worth another try before anything
+		// else, and reading it is only worth naming while some is out of sight.
+		if m.previewError != nil {
+			shown = append(shown, [2]string{"ctrl+t", "try again"})
+		}
+		if m.translationIsCut() {
+			shown = append(shown, [2]string{"tab", "read it"})
+		}
+		shown = append(shown,
+			[2]string{"ctrl+r", "→ " + m.otherDestination()},
+			[2]string{"ctrl+l", "live"})
+	} else {
+		shown = append(shown, [2]string{"ctrl+r", "→ " + m.otherDestination()})
 	}
-	// Only worth naming while there is more translation than the panel shows.
-	if m.translationIsCut() {
-		shown = append(shown, [2]string{"tab", "read it"})
-	}
-	shown = append(shown,
-		[2]string{"ctrl+r", "→ " + m.otherDestination()},
-		[2]string{"ctrl+l", "live"})
 
 	// An arrow reads as "takes you to", which a bare mode name does not.
 	switch {

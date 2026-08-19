@@ -111,7 +111,7 @@ func TestAStaleConfirmationIsTranslatedAgainRatherThanDelivered(t *testing.T) {
 // the model until nothing is left to do.
 func drive(model tea.Model, cmd tea.Cmd) tea.Model {
 	pending := []tea.Cmd{cmd}
-	for rounds := 0; len(pending) > 0 && rounds < 32; rounds++ {
+	for rounds := 0; len(pending) > 0 && rounds < 12; rounds++ {
 		next := pending[0]
 		pending = pending[1:]
 		if next == nil {
@@ -127,6 +127,24 @@ func drive(model tea.Model, cmd tea.Cmd) tea.Model {
 			model, following = model.Update(msg)
 			pending = append(pending, following)
 		}
+	}
+	return model
+}
+
+// driveOnce runs the commands a model asked for, without following what those
+// produce: enough to deliver a message, and it never runs into a timer.
+func driveOnce(model tea.Model, cmd tea.Cmd) tea.Model {
+	if cmd == nil {
+		return model
+	}
+	switch msg := cmd().(type) {
+	case nil:
+	case tea.BatchMsg:
+		for _, each := range msg {
+			model = driveOnce(model, each)
+		}
+	default:
+		model, _ = model.Update(msg)
 	}
 	return model
 }

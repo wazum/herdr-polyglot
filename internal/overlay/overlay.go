@@ -29,6 +29,13 @@ type Prompter interface {
 type Options struct {
 	Service  string
 	Language string
+	// WithoutService says there is nothing to translate with. The popup is then a
+	// draft box: no second panel, no keys for a translation that cannot happen,
+	// and the draft reaches the agent as it was written.
+	WithoutService bool
+	// Trouble is a service that was asked for and could not be built, said out
+	// loud as soon as the popup opens.
+	Trouble error
 	// Review says the prompt is only typed into the agent's input, not sent.
 	Review bool
 	Vim    bool
@@ -57,6 +64,10 @@ type Drafts interface {
 	Save(text string) error
 	Clear() error
 }
+
+// errNoService is what the keys for translating say when there is nothing to
+// translate with.
+var errNoService = errors.New("no translation service configured")
 
 type stage int
 
@@ -203,6 +214,9 @@ func New(ctx context.Context, prompter Prompter, options Options) Model {
 		spinner:  working,
 		delivery: deliveryFor(options.Review),
 	}
+	if options.WithoutService {
+		model.options.Live = false
+	}
 	model.resize(maxContentWidth)
 	if options.Drafts != nil {
 		kept, err := options.Drafts.Load()
@@ -248,6 +262,9 @@ func (m Model) Init() tea.Cmd {
 	// The allowance is asked for after the box is already on screen, so nothing
 	// waits for the network.
 	started := []tea.Cmd{textarea.Blink, m.askUsage()}
+	if m.options.Trouble != nil {
+		started = append(started, refuse(m.options.Trouble))
+	}
 	if m.loadFailure != nil {
 		started = append(started, refuse(m.loadFailure))
 	}
@@ -397,6 +414,8 @@ func (m *Model) resize(contentWidth int) {
 	m.followCursor()
 }
 
+func (m Model) translating() bool { return !m.options.WithoutService }
+
 func deliveryFor(review bool) promptflow.Delivery {
 	if review {
 		return promptflow.Typing
@@ -445,6 +464,9 @@ func (m Model) draftRows() int {
 
 // A pane too short for both boxes drops the translation rather than overflow.
 func (m Model) showsEnglish() bool {
+	if !m.translating() {
+		return false
+	}
 	// With live translation off there is nothing to show until one is asked for.
 	if !m.options.Live && m.stage != confirming && m.preview == "" && m.previewError == nil {
 		return false
@@ -487,6 +509,10 @@ func (m Model) handleKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	case key.Type == tea.KeyCtrlR:
 		return m.switchDelivery(), nil
+
+	case (key.Type == tea.KeyCtrlL || key.Type == tea.KeyCtrlT || key.Type == tea.KeyTab) &&
+		!m.translating():
+		return m.raiseNotice(errNoService)
 
 	case key.Type == tea.KeyCtrlL:
 		return m.switchLive()

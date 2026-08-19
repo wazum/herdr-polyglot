@@ -52,6 +52,7 @@ func services() *translation.Registry {
 		deepl.Provider{},
 		google.Provider{},
 		translation.DryRunProvider{},
+		translation.OffProvider{},
 	)
 }
 
@@ -61,19 +62,8 @@ func run(ctx context.Context) error {
 		return err
 	}
 
-	registry := services()
-	service := settings.Provider
-	if service == "" {
-		service = registry.Default()
-	}
-
-	translator, err := registry.Translator(service, settings.Options)
-	if err != nil {
-		if settings.ConfigFile == "" {
-			return err
-		}
-		return fmt.Errorf("%w; configure it in %s", err, settings.ConfigFile)
-	}
+	chosen := chooseService(&settings)
+	translator := chosen.translator
 
 	// Herdr closes a popup by hanging up on it. Ending on the signal instead of
 	// dying on it is what lets the draft be kept below.
@@ -101,15 +91,17 @@ func run(ctx context.Context) error {
 	)
 	program := tea.NewProgram(
 		overlay.New(ctx, flow, overlay.Options{
-			Service:  service,
-			Language: settings.Options.TargetLanguage,
-			Review:   !settings.Submit,
-			Vim:      settings.Vim,
-			Live:     settings.Live,
-			Confirm:  settings.Confirm,
-			Pulse:    settings.Pulse,
-			Logo:     settings.Logo,
-			MaxDraft: settings.MaxDraft,
+			Service:        chosen.name,
+			WithoutService: !chosen.translates,
+			Trouble:        chosen.trouble,
+			Language:       settings.Options.TargetLanguage,
+			Review:         !settings.Submit,
+			Vim:            settings.Vim,
+			Live:           settings.Live,
+			Confirm:        settings.Confirm,
+			Pulse:          settings.Pulse,
+			Logo:           settings.Logo,
+			MaxDraft:       settings.MaxDraft,
 
 			Drafts: drafts(settings.KeepDraft, settings.StateDir, settings.Target),
 		}),

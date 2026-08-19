@@ -17,17 +17,14 @@ typed into the agent's input](demo/polyglot-in-herdr.gif?1787075576)
 
 ## Why this exists
 
-An agent answers in the language it was asked in. Write to it in German and the
-replies come back in German — and so do the comments it puts in the code, the
-commit messages, the documentation, and sometimes the identifiers themselves. A
-codebase should be in one language, and that language is English.
+You think faster in your own language. But an agent answers in the language it was
+asked in, so your prompts end up in the replies, the comments, the commits and the
+docs — and a rule in `CLAUDE.md` or `AGENTS.md` cannot hold: the agent continues the
+context it has, and every prompt you send makes more of that context your language.
+Translate the prompt and the drift has no source.
 
-The prompt is the one place another language belongs. You write it in yours, the
-agent reads it in English, and nothing it produces switches language.
-
-With live translation on, every prompt you write appears in English right beside
-it. Read a few hundred of those and it rubs off — practice that was never the
-point.
+Side effect: your sentence and its English sit side by side, prompt after prompt.
+It rubs off.
 
 ## Quick start
 
@@ -35,8 +32,12 @@ point.
 herdr plugin install wazum/herdr-polyglot
 ```
 
-Put your key in the plugin's own config directory, readable only by you — a
-plain redirect would leave it readable by everyone on the machine:
+That is enough to use it: with no key the popup is a prompt box that hands what
+you write to the agent, with the keys, the vim bindings and the resumed draft it
+always had. Nothing is translated and nothing leaves the machine.
+
+For the translation, put your key in the plugin's own config directory, readable
+only by you — a plain redirect would leave it readable by everyone on the machine:
 
 ```bash
 ENV_FILE="$(herdr plugin config-dir wazum.polyglot)/.env"
@@ -100,7 +101,7 @@ off (`0`, `false`, `no`, `off`) is refused rather than guessed at.
 | Setting | Default | Meaning |
 | --- | --- | --- |
 | `HERDR_POLYGLOT_API_KEY` | none | Credentials for the translation service |
-| `HERDR_POLYGLOT_PROVIDER` | `deepl` | Which service: `deepl`, `google` or `dry-run` |
+| `HERDR_POLYGLOT_PROVIDER` | `deepl` with a key, else `off` | Which service: `deepl`, `google`, `dry-run` or `off` |
 | `HERDR_POLYGLOT_LANGUAGE` | `EN-US` | Target language |
 | `HERDR_POLYGLOT_ENDPOINT` | the service's own | Override the service endpoint |
 | `HERDR_POLYGLOT_SUBMIT` | `1` | `0` types the prompt without sending it |
@@ -112,8 +113,11 @@ off (`0`, `false`, `no`, `off`) is refused rather than guessed at.
 | `HERDR_POLYGLOT_PULSE` | `1` | `0` stops the live circle from breathing |
 | `HERDR_POLYGLOT_LOGO` | `1` | `0` leaves the empty draft box unsigned |
 
-With `HERDR_POLYGLOT_PROVIDER=dry-run` the overlay marks the draft instead of
-translating it, so you can check the wiring without a key. To keep keys for
+`off` is the plain prompt box, which is what you get with no key. Asking for a
+service you have no key for is a different thing: the popup says which key is
+missing and where it belongs, and delivers nothing, so an untranslated draft never
+reaches the agent by accident. With `HERDR_POLYGLOT_PROVIDER=dry-run` the overlay
+marks the draft instead of translating it, so you can check the wiring. To keep keys for
 several services side by side, scope them by name:
 `HERDR_POLYGLOT_DEEPL_API_KEY`, `HERDR_POLYGLOT_GOOGLE_API_KEY`.
 
