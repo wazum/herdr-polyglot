@@ -16,6 +16,9 @@ the versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `ctrl+t` translates the draft as it stands: the way to try again when a
+  translation did not arrive, and the way to read the English at all with live
+  translation off, without sending anything.
 - The panel being written in or read is drawn with the accent border, the other in
   the frame's grey, so it is clear which one has the keys.
 - How far through a panel you are is written into its bottom border rather than
@@ -23,6 +26,13 @@ the versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- A service that times out or cannot be reached says so in a sentence, instead of
+  showing a Go error with a URL and a client timeout in it.
+- Reading a translation that failed shows what went wrong, rather than claiming
+  nothing has been translated yet.
+- The boxes are given their rows again when a translation arrives or a
+  confirmation opens, so the popup does not outgrow its pane until live
+  translation is toggled.
 - The scrollbar says where the view actually is. It was worked out from the cursor
   on the assumption that the last row was on screen, so it claimed the top while
   rows were hidden above.

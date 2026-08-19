@@ -327,6 +327,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.previewOf, m.preview, m.previewError = msg.of, msg.text, msg.err
 		m.endPulse()
+		m.refit()
 
 		// A translation asked for in order to send it waits for the go-ahead.
 		if m.stage == translating && m.options.Confirm {
@@ -334,6 +335,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m.raiseNotice(msg.err)
 			}
 			m.stage = confirming
+			m.refit()
 		}
 		return m, nil
 
@@ -374,6 +376,14 @@ func (m *Model) startNoticeClock() tea.Cmd {
 	return tea.Tick(m.options.NoticeLinger, func(time.Time) tea.Msg {
 		return noticeExpiredMsg{shown: shown}
 	})
+}
+
+// refit gives the boxes their rows again after something changed which of them is
+// on screen: a translation arriving, one failing, a confirmation opening.
+func (m *Model) refit() {
+	if m.pane.Width > 0 {
+		m.resize(m.pane.Width - draftFrame)
+	}
 }
 
 func (m *Model) resize(contentWidth int) {
@@ -435,7 +445,8 @@ func (m Model) draftRows() int {
 
 // A pane too short for both boxes drops the translation rather than overflow.
 func (m Model) showsEnglish() bool {
-	if !m.options.Live && m.stage != confirming {
+	// With live translation off there is nothing to show until one is asked for.
+	if !m.options.Live && m.stage != confirming && m.preview == "" && m.previewError == nil {
 		return false
 	}
 	if m.pane.Height <= 0 {
@@ -463,6 +474,7 @@ func (m Model) handleKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	case key.Type == tea.KeyEsc && m.stage == confirming:
 		m.stage = composing
+		m.refit()
 		return m, nil
 
 	case key.Type == tea.KeyEsc && !m.draft.Modal():
@@ -478,6 +490,16 @@ func (m Model) handleKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	case key.Type == tea.KeyCtrlL:
 		return m.switchLive()
+
+	// Translate what is there now: after a translation that did not arrive, and as
+	// the way to read the English at all when live translation is off.
+	case key.Type == tea.KeyCtrlT:
+		m.previewError = nil
+		m.refit()
+		m.revision++
+		started, cmd := m.startPreview()
+		translating := started.(Model)
+		return translating, tea.Batch(cmd, translating.beginPulse())
 
 	// ctrl+u clears the whole draft, as it clears a line in a shell. The text
 	// area would otherwise use it to delete back to the line start.
@@ -513,6 +535,7 @@ func (m Model) handleKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	if m.draft.Value() != before && m.stage == confirming {
 		m.stage = composing
+		m.refit()
 	}
 	if m.draft.Value() != before {
 		// Once it has been edited it is this session's draft, not an old one.

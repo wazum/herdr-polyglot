@@ -38,7 +38,7 @@ func (m Model) readingView() string {
 	total := m.readingTotal()
 
 	text, style := m.english()
-	if m.preview == "" {
+	if m.preview == "" && m.previewError == nil {
 		text = "nothing translated yet"
 	}
 	shown := style.Render(rowsFrom(text, m.contentWidth(), m.readingFrom, rows))
@@ -217,6 +217,10 @@ func roomBeside(mode string, inner int) int {
 // the readme rather than the footer.
 func (m Model) keyHints(room int) string {
 	shown := [][2]string{{"alt+enter", m.destination()}}
+	// A translation that did not arrive is worth another try before anything else.
+	if m.previewError != nil {
+		shown = append(shown, [2]string{"ctrl+t", "try again"})
+	}
 	// Only worth naming while there is more translation than the panel shows.
 	if m.translationIsCut() {
 		shown = append(shown, [2]string{"tab", "read it"})
@@ -262,9 +266,13 @@ func (m Model) readingFooter(inner int) string {
 	hints := []string{
 		m.styles.key.Render("↑↓") + m.styles.hint.Render(" read"),
 		m.styles.key.Render("tab") + m.styles.hint.Render(" → write"),
-		m.styles.key.Render("alt+enter") + m.styles.hint.Render(" "+m.destination()),
-		m.styles.key.Render("esc") + m.styles.hint.Render(" back"),
 	}
+	if m.previewError != nil {
+		hints = append(hints, m.styles.key.Render("ctrl+t")+m.styles.hint.Render(" try again"))
+	}
+	hints = append(hints,
+		m.styles.key.Render("alt+enter")+m.styles.hint.Render(" "+m.destination()),
+		m.styles.key.Render("esc")+m.styles.hint.Render(" back"))
 	return spread(" "+strings.Join(hints, m.styles.hint.Render(" · ")), "", inner)
 }
 

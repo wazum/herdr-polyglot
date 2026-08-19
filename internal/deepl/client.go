@@ -130,7 +130,7 @@ func (c *Client) TranslateWithContext(ctx context.Context, draft, surrounding st
 
 	response, err := c.httpClient.Do(request)
 	if err != nil {
-		return "", fmt.Errorf("calling DeepL: %w", err)
+		return "", translation.Trouble("deepl", err)
 	}
 	defer response.Body.Close()
 

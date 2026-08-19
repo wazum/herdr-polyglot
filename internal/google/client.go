@@ -13,6 +13,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/wazum/herdr-polyglot/internal/translation"
 )
 
 const (
@@ -120,7 +122,7 @@ func (c *Client) Translate(ctx context.Context, draft string) (string, error) {
 
 	response, err := c.httpClient.Do(request)
 	if err != nil {
-		return "", fmt.Errorf("asking the service to translate: %w", err)
+		return "", translation.Trouble("google", err)
 	}
 	defer response.Body.Close()
 

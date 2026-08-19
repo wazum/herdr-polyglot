@@ -1,6 +1,8 @@
 package overlay
 
 import (
+	"errors"
+
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/wazum/herdr-polyglot/internal/promptflow"
@@ -53,3 +55,8 @@ const (
 	ScrollThumb = scrollThumb
 	ScrollTrack = scrollTrack
 )
+
+// PreviewFailed is what the model gets when a translation did not come back.
+func PreviewFailed(why string) tea.Msg {
+	return previewReadyMsg{err: errors.New(why)}
+}

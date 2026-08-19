@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/wazum/herdr-polyglot/internal/deepl"
 	"github.com/wazum/herdr-polyglot/internal/translation"
@@ -251,5 +252,47 @@ func TestUsageReportsWhatTheKeyHasSpent(t *testing.T) {
 	}
 	if asked != "/v2/usage" {
 		t.Errorf("Usage asked %q, want the usage endpoint beside the translate one", asked)
+	}
+}
+
+func TestAServiceThatDoesNotAnswerInTimeSaysThatPlainly(t *testing.T) {
+	t.Parallel()
+	slow := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		time.Sleep(300 * time.Millisecond)
+		_, _ = io.WriteString(w, `{"translations":[{"text":"too late"}]}`)
+	}))
+	t.Cleanup(slow.Close)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 40*time.Millisecond)
+	defer cancel()
+
+	_, err := deepl.New("key-123", deepl.WithEndpoint(slow.URL)).
+		Translate(ctx, "Bitte behebe den Test")
+	if err == nil {
+		t.Fatal("Translate returned no error for a service that did not answer")
+	}
+	if !strings.Contains(err.Error(), "did not answer in time") {
+		t.Errorf("Translate returned %v, want a sentence about the time", err)
+	}
+	for _, dump := range []string{"http://", "Client.Timeout", "context deadline"} {
+		if strings.Contains(err.Error(), dump) {
+			t.Errorf("Translate returned %v, which still carries %q", err, dump)
+		}
+	}
+}
+
+func TestAServiceThatCannotBeReachedSaysThatPlainly(t *testing.T) {
+	t.Parallel()
+	closed := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
+	address := closed.URL
+	closed.Close()
+
+	_, err := deepl.New("key-123", deepl.WithEndpoint(address)).
+		Translate(context.Background(), "Bitte behebe den Test")
+	if err == nil {
+		t.Fatal("Translate returned no error for a service that is not there")
+	}
+	if !strings.Contains(err.Error(), "deepl could not be") {
+		t.Errorf("Translate returned %v, want a sentence about reaching it", err)
 	}
 }
